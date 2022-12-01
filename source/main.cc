@@ -272,14 +272,13 @@ int main(int argc, char* argv[])
 	ui::builder<ui::TimeIndicator>(ui::Screen::top)
 		.add_to(ui::RenderQueue::global());
 
+	ui::builder<ui::BatteryIndicator>(ui::Screen::top)
+		.add_to(ui::RenderQueue::global());
+
 #ifndef RELEASE
 	ui::builder<FrameCounter>(ui::Screen::top)
 		.size(0.4f)
-		.x(ui::layout::right)
-		.under(ui::RenderQueue::global()->back())
-		.add_to(ui::RenderQueue::global());
-#else
-	ui::builder<ui::BatteryIndicator>(ui::Screen::top)
+		.x(ui::layout::right).y(20.0f)
 		.add_to(ui::RenderQueue::global());
 #endif
 

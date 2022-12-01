@@ -179,7 +179,7 @@ int acfg_load(void)
 
 	char *file = acfg_read_file(), *start, *endid, *vname, *ptr, *key, *next;
 	int len;
-	struct playlist *pl;
+	struct playlist *pl = NULL;
 	if(!file) { elog("failed to read configuration file"); return ACE_FILE_IO; }
 	for(ptr = file; *ptr; ++ptr)
 	{
@@ -461,5 +461,6 @@ void acfg_free(void)
 	for(int i = 0; i < gacfg.nplaylists; ++i)
 		playlist_free(gacfg.playlists[i]);
 	free(gacfg.playlists);
+	plist_exit();
 }
 

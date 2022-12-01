@@ -117,8 +117,8 @@ Titel bestaat niet: %1
 
 - netcon_lost +code(_, number)
 ##define S(zn) "Netwerk verbinding verloren (%1).\nWe proberen het in %2 " zn " weer..."
-if(p2 < 2) return S("secondes");
-else       return S("seconde");
+if(p2 < 2) return S("seconde");
+else       return S("secondes");
 ##undef S
 
 - about_app
@@ -431,8 +431,9 @@ Themas
 - delete_unused_tickets
 Verwijder ongebruikte tickets
 
-- found_unused_tickets
-%1 ongebruikte tickets gevonden. Wil je ze verwijderen?
+- found_unused_tickets +code(number)
+if(p1 == 1) return "%1 ongebruikte tickets gevonden. Wil je ze verwijderen?";
+else        return "%1 ongebruikt ticket gevonden. Wil je het verwijderen?";
 
 - found_no_unused_tickets
 Geen ongebruikte tickets gevonden.

@@ -115,9 +115,9 @@ ungültig
 - title_doesnt_exist
 Inhalt existiert nicht: %1
 
-- netcon_lost
-Netzwerkverbindung verloren (%1).
-Neuer versuch in %2 Sekunden...
+- netcon_lost +code(_, number)
+if (p2 == 1) return "Netzwerkverbindung verloren (%1).\nNeuer Versuch in einer Sekunde...";
+else         return "Netzwerkverbindung verloren (%1).\nNeuer Versuch in %2 Sekunden...";
 
 - about_app
 Über

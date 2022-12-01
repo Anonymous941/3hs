@@ -583,3 +583,29 @@ Aποθήκευση
 
 - submit
 Υποβολ
+- content_type
+Τύπος περιεχομένου
+
+- all
+Όλοι
+
+- all
+Όλοι
+
+- include_content
+Συμπερίληψη περιεχομένου
+
+- regions
+Περιοχές
+
+- include_filters
+Φίλτρα συμπερίληψης
+
+- exclude_filters
+Φίλτρα αποκλεισμού
+
+- add
+Προσθήκη
+
+- normal_search
+Κανονική αναζήτηση

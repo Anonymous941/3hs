@@ -607,3 +607,34 @@ Entrez votre recherche...
 - submit
 Rechercher
 
+# label for content type selector for normal search
+- content_type
+Type de contenu
+
+# label for content type selector, to indicate that all content types are to be included
+- all
+Tout
+
+# label for checkbox list of categories to include in quick search
+- include_content
+Contenu inclus
+
+# label for checkbox list of regions to include in quick search
+- regions
+Régions
+
+# label for include filters of normal search
+- include_filters
+Filtres d'inclusion
+
+# label for exclude filters of normal search
+- exclude_filters
+Filtres d'exclusion
+
+# button, adds a filter in normal search
+- add
+Ajouter
+
+# search menu option to open normal search
+- normal_search
+Recherche normale

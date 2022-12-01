@@ -4,6 +4,8 @@ v1.4.0 "aequora viridia":
  - Fix issue where jumping a page in a list would skip an entry
  - Fix issue where DSiWare that was already installed would not be detected
  - Fix issue where it was possible to add duplicate titles to the queue
+ - Fix regional variants of VC console names being incorrect
+ - Fix battery indicator not turning red when only one bar is left
  - Make 3hs not remove every queue item if there was a failure, but only those that succeeded
  - Make 3hs always display the title currently being installed
  - Add a progress bar instead of spinner for deleting unused tickets

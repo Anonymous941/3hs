@@ -618,4 +618,38 @@ UI_GLYPH_X: посмотреть превью темы
 
 # Submit new search and display resulst
 - submit
-Отправить
+Отправить# label for content type selector for normal search
+- content_type
+Тип контента
+
+# label for content type selector, to indicate that all content types are to be included
+- all
+Все
+
+# label for checkbox list of categories to include in quick search
+- include_content
+Виды контента
+
+# label for checkbox list of regions to include in quick search
+- regions
+Регионы
+
+# label for include filters of normal search
+- include_filters
+Фильтры включения
+
+# label for exclude filters of normal search
+- exclude_filters
+Фильтры исключения
+
+# button, adds a filter in normal search
+- add
+Добавить
+
+# search menu option to open normal search
+- normal_search
+Обычный поиск
+
+# Placeholder for empty search bar
+- empty
+(пусто)

@@ -191,8 +191,8 @@ Title doesn't exist: %1
 Network connection lost (%1).
 Retrying in %2 second(s)...
 */
-if(p2 < 2) return "Network connection lost (%1).\nRetrying in %2 seconds...";
-else       return "Network connection lost (%1).\nRetrying in %2 second...";
+if(p2 < 2) return "Network connection lost (%1).\nRetrying in %2 second...";
+else       return "Network connection lost (%1).\nRetrying in %2 seconds...";
 
 # nowrap, burger (three lines) menu entry
 - about_app
@@ -600,8 +600,9 @@ Themes
 Delete unused tickets
 
 # asking user if they want to delete unused tickets, %1 = amount of unused tickets that were found
-- found_unused_tickets
-Found %1 unused tickets. Do you want to remove them?
+- found_unused_tickets +code(number)
+if(p1 == 1) return "Found %1 unused ticket. Do you want to remove it?";
+else        return "Found %1 unused tickets. Do you want to remove them?";
 
 # informing user that no missing tickets were found
 - found_no_unused_tickets
@@ -809,6 +810,8 @@ Add
 # search menu option to open normal search
 - normal_search
 Normal search
+
+# -- v1.4.0 barrier -- #
 
 # Slides in screen when a new song is up
 #  %1 = song name

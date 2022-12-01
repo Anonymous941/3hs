@@ -37,6 +37,9 @@
 	#error "You must define HS_BASE_LOC, HS_CDN_BASE, HS_SITE_LOC and HS_UPDATE_BASE"
 #endif
 
+#define REGION_JAPAN "japan"
+#define REGION_USA "north-america"
+
 #define TRYGET_T(dst,jsn,prp,T,chkr) do { if(!jsn[prp].chkr()) { elog("Prop: " prp); return APPERR_JSON_FAIL; } dst = jsn[prp].get<T>(); } while(0)
 #define TRYGET_S(jsn,dst,prp) TRYGET_T(dst,jsn,prp,std::string,is_string)
 #define TRYGET_SZ(jsn,dst,prp) TRYGET_T(dst,jsn,prp,hsapi::hsize,is_number_unsigned)
@@ -282,10 +285,10 @@ static Result serialize_title(hsapi::Title& t, json& jt)
 	case hsapi::VCType::gb: vc_type = "[GB] "; break;
 	case hsapi::VCType::gbc: vc_type = "[GBC] "; break;
 	case hsapi::VCType::gba: vc_type = "[GBA] "; break;
-	case hsapi::VCType::nes: vc_type = "[NES] "; break;
-	case hsapi::VCType::snes: vc_type = "[SNES] "; break;
+	case hsapi::VCType::nes: vc_type = t.subcat == REGION_JAPAN ? "[Famicom] " : "[NES] "; break;
+	case hsapi::VCType::snes: vc_type = t.subcat == REGION_JAPAN ? "[Super Famicom] " : "[SNES] "; break;
 	case hsapi::VCType::gamegear: vc_type = "[GameGear] "; break;
-	case hsapi::VCType::pcengine: vc_type = "[PCEngine] "; break;
+	case hsapi::VCType::pcengine: vc_type = t.subcat == REGION_USA ? "[TurboGrafx-16] " : "[PC Engine] "; break;
 	case hsapi::VCType::none:
 	default:
 		vc_type = NULL;

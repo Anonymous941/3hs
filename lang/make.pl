@@ -9,6 +9,7 @@ use utf8;
 my $build_dir = "build";
 my $lang_dir = "lang";
 my $print_missing = 0;
+my $without_color = 0;
 
 # NOTE: The first language in this array
 #       will be used as the base language.
@@ -70,6 +71,7 @@ GetOptions(
 	"lang|l=s", \$lang_dir,
 	"build|b=s", \$build_dir,
 	"print-missing|m", \$print_missing,
+	"no-color|c", \$without_color,
 ) or die;
 
 -d $lang_dir or die "no language directory available.";
@@ -85,6 +87,10 @@ my $total_missing = 0;
 my $func_ctr = 0;
 
 my @string_ids = qw();
+
+my $red_fmt = $without_color ? "" : "\033[31;1m";
+my $bld_fmt = $without_color ? "" : "\033[1m";
+my $clr_fmt = $without_color ? "" : "\033[0m";
 
 sub parse_lang_file {
 	my ($lang_name) = @_;
@@ -225,7 +231,7 @@ EOF
 		}
 		else {
 			$main_table .= "\t\t\tSTUB($k),\n";
-			print ($missing ? ", \033[1m$k\033[0m" : "\033[1m$k\033[0m") if $print_missing;
+			print ($missing ? ", ".$bld_fmt.$k.$clr_fmt : $bld_fmt.$k.$clr_fmt) if $print_missing;
 			++$missing;
 		}
 	}
@@ -237,7 +243,7 @@ EOF
 				print " are missing\n";
 			}
 			else {
-				print "\033[31;1m$missing\033[0m missing\n";
+				print $red_fmt."$missing".$clr_fmt." missing\n";
 			}
 			$total_missing += $missing;
 			++$langs_w_missing;

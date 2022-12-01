@@ -491,3 +491,156 @@ Inv'lid product codet
 - search_prod
 Searcheth by product code
 
+# scroll, setting title
+- disable_graph
+Disableth latency graph
+
+# setting description
+- disable_graph_desc
+Disables the latency graph yond is shown while installing a title
+
+# scroll, setting title
+- goto_region
+Jumpeth to subregion
+
+# setting description
+- goto_region_desc
+Jumpeth to the c'rrect subregion in the subcateg'ry selection if 't be true t exists
+
+- add_music
+Thee has't not yet did add any music!
+tryeth putting music in /3ds/3hs/music on thy sd card
+
+- add_playlist
+Thee has't yet to addeth any playlists!
+tryeth adding those folk with the make shift option
+
+# noscroll, Keep the [ ], it is used in a menu with other file names
+- add_file_act
+[ addeth fileth ]
+
+# noscroll, same as above
+- add_playlist_act
+[ addeth playlist ]
+
+# keyboard hint
+- new_playlist_name
+New playlist nameth...
+
+# noscroll, Basic audio engine options (randomize, repeat, stereo)
+- basic_options
+Basic options
+
+# noscroll, audio engine option
+- randomize
+Randomizeth playlists
+
+# noscroll, audio engine option
+- repeat
+Repeateth playlists and songs
+
+# noscroll, stereo ( = multichannel) audio option
+- stereo
+St'reo
+
+# noscroll, Default playlist audio option
+- default_playlist
+Defaulteth playlist
+
+# noscroll, other audio engine options (select current file/playlist, manage playlists), may be translated as miscelaneous
+- other
+Oth'r
+
+# button, this string is followed by two buttons, one with "file" and another with "playlist", selects a playlist/file to play
+- select
+Selecteth...
+
+# button, keep lowercase, see comment on select
+- playlist
+playlist
+
+# button, keep lowercase, see comment on select
+- file
+fileth
+
+# button, save audio engine configuration
+- save
+Saveth
+
+# button
+- manage_playlists
+Make shift playlists
+
+# Button in more menu that leads to audio configuration.
+- audio
+Audio
+
+# button that adds everything in this category as a filter
+- everything
+Ev'rything in this categ'ry
+
+# new search method, has the option of quick filtering of official content categories and the regions europe, north-america and japan
+- quick
+Quicketh
+
+# new search method, has the option of filtering based on advanced filters like on the website
+- filters
+Filt'rs
+
+# Invalid title id error in new search
+- new_invalid_tid
+Err'r: invalid title ID ent'r'd
+Title IDs art usually structur'd liketh this: 000400000008b500
+
+# Invalid product code error in new search
+- new_invalid_prod
+Err'r: invalid product code ent'r'd
+Product codes art usually structur'd liketh this: CTR-P-ABCD
+
+# Subtitle of the new search methods
+- press_to_switch
+Presseth UI_GLYPH_L/UI_GLYPH_R to switcheth modes
+
+# Placeholder for empty search bar
+- empty
+(empty)
+
+# keyboard hint while filling the search bar for new search
+- enter_query
+Ent'r thy qu'ry...
+
+# Submit new search and display resulst
+- submit
+Submit
+
+# label for content type selector for normal search
+- content_type
+Content typeth
+
+# label for content type selector, to indicate that all content types are to be included
+- all
+All
+
+# label for checkbox list of categories to include in quick search
+- include_content
+Includeth content
+
+# label for checkbox list of regions to include in quick search
+- regions
+Climatures
+
+# label for include filters of normal search
+- include_filters
+Includeth filt'rs
+
+# label for exclude filters of normal search
+- exclude_filters
+Exclude filt'rs
+
+# button, adds a filter in normal search
+- add
+Addeth
+
+# search menu option to open normal search
+- normal_search
+N'rmal searcheth

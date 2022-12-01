@@ -650,3 +650,156 @@ UI_GLYPH_X: преглед на тема
 - search_prod
 Пребаруванье по код на производот
 
+# scroll, setting title
+- disable_graph
+Исклучете го графикот на латентност
+
+# setting description
+- disable_graph_desc
+Го исклучува графикот на латентност, што се прикажува при инсталиранье на игра.
+
+# scroll, setting title
+- goto_region
+Изберете подрегион
+
+# setting description
+- goto_region_desc
+Изберете го точниот подрегион во изборот на поткатегориjата, доколку постои.
+
+- add_music
+Немате музика!
+Обидете се да ставите музика во /3ds/3hs/music на вашата SD.
+
+- add_playlist
+Немате плеjлисти!
+Обидете се да ги додадете со опциjата за управуванье.
+
+# noscroll, Keep the [ ], it is used in a menu with other file names
+- add_file_act
+[ дод. датотека ]
+
+# noscroll, same as above
+- add_playlist_act
+[ дод. плеjлиста ]
+
+# keyboard hint
+- new_playlist_name
+Ново име за плеjлиста...
+
+# noscroll, Basic audio engine options (randomize, repeat, stereo)
+- basic_options
+Основни опции
+
+# noscroll, audio engine option
+- randomize
+Измешаj плеjлисти
+
+# noscroll, audio engine option
+- repeat
+Повторете плеjлисти и музика
+
+# noscroll, stereo ( = multichannel) audio option
+- stereo
+Стерео
+
+# noscroll, Default playlist audio option
+- default_playlist
+Стандардна плеjлиста
+
+# noscroll, other audio engine options (select current file/playlist, manage playlists), may be translated as miscelaneous
+- other
+Други
+
+# button, this string is followed by two buttons, one with "file" and another with "playlist", selects a playlist/file to play
+- select
+Изберете...
+
+# button, keep lowercase, see comment on select
+- playlist
+плеjлиста
+
+# button, keep lowercase, see comment on select
+- file
+датотека
+
+# button, save audio engine configuration
+- save
+Зачуваj
+
+# button
+- manage_playlists
+Управуванье со плеjлисти
+
+# Button in more menu that leads to audio configuration.
+- audio
+Аудио
+
+# button that adds everything in this category as a filter
+- everything
+Се во оваа категорија
+
+# new search method, has the option of quick filtering of official content categories and the regions europe, north-america and japan
+- quick
+Брзо
+
+# new search method, has the option of filtering based on advanced filters like on the website
+- filters
+Филтри
+
+# Invalid title id error in new search
+- new_invalid_tid
+Грешка: неважечки ID на играта
+ID на играта обично се структурирани вака: 000400000008B500
+
+# Invalid product code error in new search
+- new_invalid_prod
+Грешка: неважечки код на производот
+Кодовите на производите обично се структурирани вака: CTR-P-ABCD
+
+# Subtitle of the new search methods
+- press_to_switch
+Притиснете UI_GLYPH_L/UI_GLYPH_R за да ги префрлите режимите
+
+# Placeholder for empty search bar
+- empty
+(празен)
+
+# keyboard hint while filling the search bar for new search
+- enter_query
+Внесете го вашето баранье...
+
+# Submit new search and display resulst
+- submit
+Поднесете
+
+# label for content type selector for normal search
+- content_type
+Тип на содржина
+
+# label for content type selector, to indicate that all content types are to be included
+- all
+Сите
+
+# label for checkbox list of categories to include in quick search
+- include_content
+Вклучете содржина
+
+# label for checkbox list of regions to include in quick search
+- regions
+Региони
+
+# label for include filters of normal search
+- include_filters
+Вклучете филтри
+
+# label for exclude filters of normal search
+- exclude_filters
+Исклучете филтри
+
+# button, adds a filter in normal search
+- add
+Додадете
+
+# search menu option to open normal search
+- normal_search
+Нормално пребарување

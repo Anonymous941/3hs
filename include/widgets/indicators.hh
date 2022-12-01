@@ -71,6 +71,7 @@ namespace ui
 	private:
 		UI_SLOTS_PROTO(BatteryIndicator_color, 2)
 		ui::RenderQueue queue;
+		u8 isCharging = 0;
 		u8 level = 0;
 
 

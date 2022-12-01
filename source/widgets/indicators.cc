@@ -209,11 +209,12 @@ void ui::BatteryIndicator::update()
 	u8 nlvl = 0;
 
 	time_t now = time(NULL);
-	if(lastcheck && lastcheck - now <= 5)
-		return; /* don't want to update too often, let's just update every 5 seconds */
+	if(lastcheck && lastcheck - now <= 2)
+		return; /* don't want to update too often, let's just update every 2 seconds */
 	lastcheck = now;
 
-	if(R_FAILED(MCUHWC_GetBatteryLevel(&nlvl)) || this->level == nlvl)
+	if( R_FAILED(PTMU_GetBatteryChargeState(&this->isCharging)) || this->isCharging
+	 || R_FAILED(MCUHWC_GetBatteryLevel(&nlvl)) || this->level == nlvl)
 		return;
 
 	this->level = nlvl;
@@ -224,29 +225,39 @@ void ui::BatteryIndicator::update()
 	perc->set_x(ui::left(fg, perc));
 }
 
-static u8 lvl2batlvl(u8 lvl)
+#ifdef RELEASE
+static u8 lvl2barcount(u8 lvl)
 {
+	/* 1 bar  in [0,25]
+	 * 2 bars in [25,50]
+	 * 3 bars in [50,75]
+	 * 4 bars in [75,100] */
 	u8 ret = lvl / 25 + 1;
 	return ret > 4 ? 4 : ret;
 }
+#endif
 
 bool ui::BatteryIndicator::render(ui::Keys& keys)
 {
-#ifdef RELEASE
+	(void) keys;
 	if(ISET_SHOW_BATTERY)
 	{
+		/* mcuhwc is not supported in citra */
+#ifdef RELEASE
 		this->update();
-
-		float width = lvl2batlvl(this->level) * 5.0f;
-		C2D_DrawRectSolid(ui::screen_width(ui::Screen::top) - 13.0f - width, 7.0f, 0.0f,
-			width, 12.0f, this->level == 1 ? this->slots.get(1) : this->slots.get(0));
-		this->queue.render_top(keys);
-	}
-#else
-	/* mcuhwc is not supported in citra */
-	((void) lvl2batlvl);
-	((void) keys);
+		if(!this->isCharging)
+		{
+			u8 bars = lvl2barcount(this->level);
+			float width = bars * 5.0f;
+			C2D_DrawRectSolid(ui::screen_width(ui::Screen::top) - 13.0f - width, 7.0f, 0.0f,
+				width, 12.0f, bars == 1 ? this->slots.get(1) : this->slots.get(0));
+			this->queue.render_top(keys);
+		}
+		else
 #endif
+		{
+		}
+	}
 
 	return true;
 }

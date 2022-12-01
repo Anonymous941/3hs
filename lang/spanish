@@ -491,3 +491,156 @@ Código de producto inválido
 - search_prod
 Buscar por código de producto
 
+# scroll, setting title
+- disable_graph
+Desactivar gráfica de latencia
+
+# setting description
+- disable_graph_desc
+Desactiva la gráfica de latencia que aparece mientras se está instalando un título.
+
+# scroll, setting title
+- goto_region
+Saltar a subregión
+
+# setting description
+- goto_region_desc
+Salta a la subregión correcta en la selección de subcategoría si es que existe. Jump to the correct subregion in the subcategory selection if it exists.
+
+- add_music
+¡Aún no has añadido música!
+Prueba poner música en /3ds/3hs/music en tu tarjeta SD
+
+- add_playlist
+¡Aún no has añadido listas de reproducción!
+Prueba añadirlos con la opción de administrar
+
+# noscroll, Keep the [ ], it is used in a menu with other file names
+- add_file_act
+[ añadir archivo ]
+
+# noscroll, same as above
+- add_playlist_act
+[ añadir lista de reproducción ]
+
+# keyboard hint
+- new_playlist_name
+Nombre de lista de reproducción nueva...
+
+# noscroll, Basic audio engine options (randomize, repeat, stereo)
+- basic_options
+Opciones básicas
+
+# noscroll, audio engine option
+- randomize
+Aleatorizar listas de reproducción
+
+# noscroll, audio engine option
+- repeat
+Repetir canciones y listas de reproducción
+
+# noscroll, stereo ( = multichannel) audio option
+- stereo
+Estéreo
+
+# noscroll, Default playlist audio option
+- default_playlist
+Lista de reproducción predeterminada
+
+# noscroll, other audio engine options (select current file/playlist, manage playlists), may be translated as miscelaneous
+- other
+Otro
+
+# button, this string is followed by two buttons, one with "file" and another with "playlist", selects a playlist/file to play
+- select
+Seleccionar...
+
+# button, keep lowercase, see comment on select
+- playlist
+lista de reproducción
+
+# button, keep lowercase, see comment on select
+- file
+archivo
+
+# button, save audio engine configuration
+- save
+Guardar
+
+# button
+- manage_playlists
+Gestionar listas de reproducción
+
+# Button in more menu that leads to audio configuration.
+- audio
+Audio
+
+# button that adds everything in this category as a filter
+- everything
+Todo en esta categoría
+
+# new search method, has the option of quick filtering of official content categories and the regions europe, north-america and japan
+- quick
+Rápida
+
+# new search method, has the option of filtering based on advanced filters like on the website
+- filters
+Filtros
+
+# Invalid title id error in new search
+- new_invalid_tid
+Error: se entró un ID de título inválido
+Los ID de título están usualmente estructurados así: 000400000008B500
+
+# Invalid product code error in new search
+- new_invalid_prod
+Error: se entró un código de producto inválido
+Los códigos de producto están usualmente estructurados así: CTR-P-ABCD
+
+# Subtitle of the new search methods
+- press_to_switch
+Presiona UI_GLYPH_L/UI_GLYPH_R para cambiar modos
+
+# Placeholder for empty search bar
+- empty
+(vacío)
+
+# keyboard hint while filling the search bar for new search
+- enter_query
+Entrar consulta...
+
+# Submit new search and display resulst
+- submit
+Enviar
+
+# label for content type selector for normal search
+- content_type
+Tipo de contenido
+
+# label for content type selector, to indicate that all content types are to be included
+- all
+Todo
+
+# label for checkbox list of categories to include in quick search
+- include_content
+Incluir contenido
+
+# label for checkbox list of regions to include in quick search
+- regions
+Regiones
+
+# label for include filters of normal search
+- include_filters
+Incluir filtros
+
+# label for exclude filters of normal search
+- exclude_filters
+Excluir filtros
+
+# button, adds a filter in normal search
+- add
+Añadir
+
+# search menu option to open normal search
+- normal_search
+Búsqueda normal
