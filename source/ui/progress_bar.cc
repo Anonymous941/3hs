@@ -161,10 +161,10 @@ void ui::ProgressBar::update_state()
 		this->prevpart = this->part;
 		this->prevpoll = now;
 
-		time_t eta_i = (this->total - this->part) / bytes_s;
-
 		std::string speed = floating_prec<float>(speed_i) + std::string(format);
-		std::string eta = "ETA " + format_duration(eta_i);
+
+		/* if we have no speed yet, we cannot know the ETA, so we just omit it */
+		std::string eta = bytes_s ? "ETA " + format_duration((this->total - this->part) / bytes_s) : "";
 
 		ui::parse_text(&this->d, this->buf, speed.c_str());
 		ui::parse_text(&this->e, this->buf, eta.c_str());

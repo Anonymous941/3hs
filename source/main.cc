@@ -46,6 +46,7 @@
 #include "ctr.hh"
 
 #define ENVINFO (* (u8 *) 0x1FF80014)
+#define TIP_GIVER 0
 
 #ifndef RELEASE
 class FrameCounter : public ui::BaseWidget
@@ -105,6 +106,38 @@ private:
 
 };
 #endif
+
+#if TIP_GIVER
+class TipGiver : public ui::BaseWidget
+{ UI_WIDGET("TipGiver")
+public:
+	void setup()
+	{
+		this->frames_until_tip = 100;
+	}
+	
+	float height() override { return 0.0f; }
+	float width() override { return 0.0f; }
+
+	bool render(ui::Keys&) override
+	{
+		/* don't advance if we're already using the status or installing a game */
+		if(install::is_in_progress() || status_running() || !this->frames_until_tip)
+			return true;
+		--this->frames_until_tip;
+		if(!this->frames_until_tip)
+		{
+			set_status("Some useful tip");
+		}
+		return true;
+	}
+
+private:
+	unsigned frames_until_tip;
+
+};
+#endif
+
 
 int main(int argc, char* argv[])
 {
@@ -269,6 +302,11 @@ int main(int argc, char* argv[])
 		.tag(ui::tag::status)
 		.add_to(ui::RenderQueue::global());
 
+#if TIP_GIVER
+	ui::builder<TipGiver>(ui::Screen::top)
+		.add_to(ui::RenderQueue::global());
+#endif
+
 	ui::builder<ui::TimeIndicator>(ui::Screen::top)
 		.add_to(ui::RenderQueue::global());
 
@@ -315,18 +353,12 @@ int main(int argc, char* argv[])
 	panic_assert(acfg_realise() == ACE_NONE, "failed to set audio configuration");
 
 	ui::set_select_command_handler([](u32 kDown) -> void {
-		if(kDown)
-		{
-			/* process audio command */
-			if(kDown & KEY_L) player_previous();
-			if(kDown & KEY_R) player_next();
-			if(kDown & KEY_A) player_unpause();
-			if(kDown & KEY_B) player_pause();
-			if(kDown & KEY_X) { player_halt(); reset_status(); }
-		}
-		else
-			/* show more menu */
-			ui::RenderQueue::global()->render_and_then(show_more);
+		/* process audio command */
+		if(kDown & KEY_L) player_previous();
+		if(kDown & KEY_R) player_next();
+		if(kDown & KEY_A) player_unpause();
+		if(kDown & KEY_B) player_pause();
+		if(kDown & KEY_X) { player_halt(); reset_status(); }
 	});
 
 	if(!hsapi::global_init())

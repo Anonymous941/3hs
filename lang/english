@@ -813,15 +813,18 @@ Normal search
 
 # -- v1.4.0 barrier -- #
 
+# -- v1.4.1 barrier -- #
+
 # Slides in screen when a new song is up
 #  %1 = song name
 - playing_x
-#Playing %1
-%1
+♪ Playing %1 ♪
 
 # Slides in screen when a new song is up and it has artist metadata
 #  %1 = song name
 #  %2 = artist name
 - playing_x_by_y
-#Playing %1 by %2
-%1 - %2
+♪ Playing %1 by %2 ♪
+
+# -- v1.4.2 barrier -- #
+

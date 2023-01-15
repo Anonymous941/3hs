@@ -83,6 +83,7 @@ namespace ui
 			graph_line_color,
 			warning_color,
 			x_color,
+			battery_charging_color,
 			cmax,
 			/* don't forget to update max_color when adding a color! */
 		};
@@ -95,6 +96,7 @@ namespace ui
 			random_image,
 			background_top_image,
 			background_bottom_image,
+			battery_charging_image,
 			imax,
 		};
 	}

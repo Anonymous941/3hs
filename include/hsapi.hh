@@ -149,7 +149,7 @@ namespace hsapi
 
 	Result get_by_title_id(std::vector<Title>& ret, const std::string& title_id);
 	Result titles_in(std::vector<Title>& ret, const std::string& cat, const std::string& scat);
-	Result batch_related(BatchRelated& ret, const std::vector<htid>& tids);
+	Result batch_related(std::vector<FullTitle>& ret, const std::vector<htid>& tids);
 	Result upload_log(const char *contents, u32 size, std::string& logid);
 	Result search(std::vector<Title>& ret, const std::unordered_map<std::string, std::string>& params);
 	Result get_download_link(std::string& ret, const Title& title);
@@ -173,7 +173,7 @@ namespace hsapi
 		do {
 			res = (*func)(args...);
 			++tries;
-		} while(R_FAILED(res) && tries < 3);
+		} while(R_FAILED(res) && res != APPERR_CANCELLED && tries < 3);
 		return res;
 	}
 
@@ -189,6 +189,8 @@ namespace hsapi
 				res = (*func)(args...);
 			});
 
+			if(res == APPERR_CANCELLED)
+				break; /* done already */
 			if(R_FAILED(res)) // Ask if we want to retry
 			{
 				error_container err = get_error(res);

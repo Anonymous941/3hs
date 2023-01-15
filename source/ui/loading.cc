@@ -24,6 +24,12 @@
 #include <unistd.h>
 #include <3ds.h>
 
+enum class SpinState {
+	ToSetup,
+	Spinning,
+	Idle,
+};
+
 void ui::loading(std::function<void()> callback)
 {
 	std::string desc = ::set_desc(STRING(loading));
@@ -31,8 +37,19 @@ void ui::loading(std::function<void()> callback)
 
 	bool spin_flag = true;
 
-	aptSetHomeAllowed(false);
-	ctr::thread<> th([&spin_flag]() -> void {
+	static LightLock is_spinning_lock;
+	static SpinState is_spinning = SpinState::ToSetup;
+	if(is_spinning == SpinState::ToSetup)
+	{
+		LightLock_Init(&is_spinning_lock);
+	}
+	LightLock_Lock(&is_spinning_lock);
+	SpinState spincopy = is_spinning;
+
+	ctr::thread<> th([&spin_flag, spincopy]() -> void {
+		if(spincopy == SpinState::Spinning)
+			return;
+
 		ui::RenderQueue queue;
 		ui::builder<ui::Spinner>(ui::Screen::top)
 			.x(ui::layout::center_x)
@@ -42,8 +59,14 @@ void ui::loading(std::function<void()> callback)
 		ui::Keys keys;
 		while(spin_flag && queue.render_frame((keys = ui::RenderQueue::get_keys())))
 			/* no-op */ ;
+
+		LightLock_Lock(&is_spinning_lock);
+		is_spinning = SpinState::Idle;
+		LightLock_Unlock(&is_spinning_lock);
 	}, -1);
 
+	is_spinning = SpinState::Spinning;
+	LightLock_Unlock(&is_spinning_lock);
 	/* */ callback();
 	spin_flag = false;
 	th.join();
@@ -161,9 +184,9 @@ void ui::detail::TimeoutScreenHelper::update_text(time_t now)
 	this->text->set_text(PSTRING(netcon_lost, this->res, this->nsecs - (now - this->startTime)));
 }
 
-bool ui::detail::TimeoutScreenHelper::render(ui::Keys& keys)
+bool ui::detail::TimeoutScreenHelper::perform_frame_setup(ui::Keys *keys)
 {
-	if((keys.kDown & (KEY_START | KEY_B)) && this->shouldStop)
+	if(keys && (keys->kDown & (KEY_START | KEY_B)) && this->shouldStop)
 	{
 		*this->shouldStop = true;
 		return false;
@@ -179,27 +202,23 @@ bool ui::detail::TimeoutScreenHelper::render(ui::Keys& keys)
 		this->lastCheck = now;
 	}
 
-	return this->text->render(keys);
+	return true;
 }
+
+bool ui::detail::TimeoutScreenHelper::render(ui::Keys& keys) { return this->perform_frame_setup(&keys) && this->text->render(keys); }
+bool ui::detail::TimeoutScreenHelper::process_in_sleep() { return this->perform_frame_setup(nullptr); }
 
 // timeoutscreen()
 
 bool ui::timeoutscreen(Result res, size_t nsecs, bool allowCancel)
 {
-	bool isOpen;
 	bool ret = false;
-	if(R_SUCCEEDED(ui::shell_is_open(&isOpen)) && isOpen)
-	{
-		ui::RenderQueue queue;
 
-		ui::builder<ui::detail::TimeoutScreenHelper>(ui::Screen::top, res, nsecs, allowCancel ? &ret : nullptr)
-			.add_to(queue);
+	ui::RenderQueue queue;
+	ui::builder<ui::detail::TimeoutScreenHelper>(ui::Screen::top, res, nsecs, allowCancel ? &ret : nullptr)
+		.add_to(queue);
+	queue.render_finite();
 
-		queue.render_finite();
-	} else {
-		/* if the lid is closed don't try to use ui as it'll wait until the lid is opened */
-		sleep(nsecs);
-	}
 	return ret;
 }
 

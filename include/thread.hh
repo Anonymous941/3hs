@@ -35,7 +35,7 @@ namespace ctr
 		}
 
 		/* create a new thread */
-		thread(std::function<void(Ts...)> cb, int prioAddition, Ts& ... args)
+		thread(std::function<void(Ts...)> cb, int prioAddition, Ts&& ... args)
 		{
 			ThreadFuncParams *params = new ThreadFuncParams;
 			params->func = [&]() -> void { cb(args...); };

@@ -636,11 +636,11 @@ UI_GLYPH_X: посмотреть превью темы
 
 # label for include filters of normal search
 - include_filters
-Фильтры включения
+Искать среди
 
 # label for exclude filters of normal search
 - exclude_filters
-Фильтры исключения
+Исключить
 
 # button, adds a filter in normal search
 - add

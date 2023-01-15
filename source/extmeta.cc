@@ -272,7 +272,7 @@ bool show_extmeta_lazy(const hsapi::Title& base, hsapi::FullTitle *full)
 		prodcode = full.prod;
 		alt = full.alt;
 		queue.signal(ui::RenderQueue::signal_cancel);
-	}, -1, version, prodcode, alt, queue, full);
+	}, -1, version, prodcode, alt, queue, std::move(full));
 
 	extmeta_return res = extmeta(queue, base, STRING(loading), STRING(loading));
 	/* second thread returned more data */

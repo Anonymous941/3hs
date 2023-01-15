@@ -141,10 +141,10 @@ Nie udało się otworzyć seeddb.bin.
 Czy chcesz zaktualizować do wersji %1?
 
 - search_content
-Szukaj rzeczyt
+Szukaj treści
 
 - search_content_action
-Szukaj rzeczyt...
+Szukaj treści...
 
 - result_code
 Kod wyniku: %1
@@ -481,4 +481,38 @@ Niewłaściwy kod produktu
 
 - search_prod
 Szukaj według kodu produktu
+
+  # ... #
+
+# label for content type selector for normal search
+- content_type
+Typ treści
+
+# label for content type selector, to indicate that all content types are to be included
+- all
+Wszystkie
+
+# label for checkbox list of categories to include  in quick search
+- include_content
+Uwzględnij treść
+
+# label for checkbox list of regions to include in quick search
+- regions
+Regiony
+
+# label for include filters of normal search
+- include_filters
+Uwzględnij filtry
+
+# label for exclude filters of normal search
+- exclude_filters
+Wyklucz filtry
+
+# button, adds a filter in normal search
+- add
+Dodaj
+
+# search menu option to open normal search
+- normal_search
+Normalne wyszukiwanie
 

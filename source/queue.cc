@@ -73,10 +73,10 @@ void queue_process(size_t index)
 
 void queue_process_all()
 {
-	Result res = ctr::lockNDM();
-	bool hasLock = R_SUCCEEDED(res);
+	Result res;
+	if(R_FAILED(res = ctr::increase_sleep_lock_ref()))
+		elog("failed to acquire sleep mode lock: %08lX", res);
 	size_t i;
-	if(!hasLock) elog("failed to acquire NDM lock: %08lX", res);
 
 	struct errvec {
 		Result res;
@@ -124,7 +124,7 @@ void queue_process_all()
 	{
 		ui::LED::ClearResetFlags();
 		install::gui::ErrorLED();
-		if(hasLock) ctr::unlockNDM();
+		ctr::decrease_sleep_lock_ref();
 
 		ui::notice(STRING(replaying_errors));
 		for(errvec& ev : errs)
@@ -137,7 +137,7 @@ void queue_process_all()
 	{
 		ui::LED::ClearResetFlags();
 		install::gui::SuccessLED();
-		if(hasLock) ctr::unlockNDM();
+		ctr::decrease_sleep_lock_ref();
 	}
 
 	/* i is the amount of installs processed */

@@ -27,9 +27,6 @@
 #define TAG_CTR 2
 #define TAG_SD  3
 
-#define TAG_PERC 4
-#define TAG_FG   5
-
 #define DIM_X 0.35f
 #define DIM_Y 0.35f
 
@@ -187,20 +184,25 @@ std::string ui::TimeIndicator::time(time_t now)
 
 UI_CTHEME_GETTER(color_green, ui::theme::battery_green_color)
 UI_CTHEME_GETTER(color_red, ui::theme::battery_red_color)
-UI_SLOTS(ui::BatteryIndicator_color, color_green, color_red)
+UI_CTHEME_GETTER(color_orange, ui::theme::battery_charging_color)
+UI_SLOTS(ui::BatteryIndicator_color, color_green, color_red, color_orange)
 
 void ui::BatteryIndicator::setup()
 {
-	ui::builder<ui::Text>(this->screen)
-		.size(0.5f)
-		.y(5.0f)
-		.tag(TAG_PERC)
-		.add_to(this->queue);
-	ui::builder<ui::Sprite>(this->screen, ui::Sprite::theme, ui::theme::battery_image)
-		.x(ui::screen_width(ui::Screen::top) - 37.0f)
-		.y(5.0f)
-		.tag(TAG_FG)
-		.add_to(this->queue);
+	this->perc.setup(this->screen);
+	this->perc->resize(0.5f, 0.5f);
+	this->perc->set_y(5.0f);
+	this->perc->set_hidden(true);
+
+	this->fg.setup(this->screen, ui::Sprite::theme, ui::theme::battery_image);
+	this->fg->set_x(ui::screen_width(ui::Screen::top) - 37.0f);
+	this->fg->set_y(5.0f);
+	this->fg->set_hidden(true);
+
+	this->chrg.setup(this->screen, ui::Sprite::theme, ui::theme::battery_charging_image);
+	this->chrg->set_x(ui::screen_width(ui::Screen::top) - 37.0f);
+	this->chrg->set_y(5.0f);
+	this->chrg->set_hidden(false);
 }
 
 void ui::BatteryIndicator::update()
@@ -209,20 +211,18 @@ void ui::BatteryIndicator::update()
 	u8 nlvl = 0;
 
 	time_t now = time(NULL);
-	if(lastcheck && lastcheck - now <= 2)
+	if(now - lastcheck < 2)
 		return; /* don't want to update too often, let's just update every 2 seconds */
 	lastcheck = now;
 
-	if( R_FAILED(PTMU_GetBatteryChargeState(&this->isCharging)) || this->isCharging
+	if( R_FAILED(PTMU_GetBatteryChargeState(&this->charging)) || this->charging
 	 || R_FAILED(MCUHWC_GetBatteryLevel(&nlvl)) || this->level == nlvl)
 		return;
 
 	this->level = nlvl;
-	ui::Text *perc = this->queue.find_tag<ui::Text>(TAG_PERC);
-	ui::Sprite *fg = this->queue.find_tag<ui::Sprite>(TAG_FG);
 
-	perc->set_text(std::to_string(this->level) + "%");
-	perc->set_x(ui::left(fg, perc));
+	this->perc->set_text(std::to_string(this->level) + "%");
+	this->perc->set_x(ui::left(this->fg.ptr(), this->perc.ptr()));
 }
 
 #ifdef RELEASE
@@ -239,23 +239,26 @@ static u8 lvl2barcount(u8 lvl)
 
 bool ui::BatteryIndicator::render(ui::Keys& keys)
 {
-	(void) keys;
 	if(ISET_SHOW_BATTERY)
 	{
 		/* mcuhwc is not supported in citra */
 #ifdef RELEASE
 		this->update();
-		if(!this->isCharging)
+		if(!this->charging)
 		{
 			u8 bars = lvl2barcount(this->level);
 			float width = bars * 5.0f;
 			C2D_DrawRectSolid(ui::screen_width(ui::Screen::top) - 13.0f - width, 7.0f, 0.0f,
 				width, 12.0f, bars == 1 ? this->slots.get(1) : this->slots.get(0));
-			this->queue.render_top(keys);
+			this->fg->render(keys);
+			this->perc->render(keys);
 		}
 		else
 #endif
 		{
+			C2D_DrawRectSolid(ui::screen_width(ui::Screen::top) - 13.0f - 20.0f, 7.0f, 0.0f,
+				20.0f, 12.0f, this->slots.get(2));
+			this->chrg->render(keys);
 		}
 	}
 

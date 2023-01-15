@@ -49,12 +49,15 @@ enum migrations {
 	migration_default_reinstall = 2,
 	migration_latency_graph     = 3,
 	migration_goto_region       = 4,
+	migration_rev_reinstall     = 5,
+
+	migration_meta_last,
 };
-#define LATEST_MIGRATION migration_goto_region
+#define LATEST_MIGRATION (migration_meta_last - 1)
 
 static std::vector<ui::Theme> g_avail_themes;
 static NewSettings g_nsettings;
-static ui::Theme *light_theme;
+static int light_theme_index;
 static bool g_loaded = false;
 
 NewSettings *get_nsettings()
@@ -180,7 +183,7 @@ void reset_settings(bool set_default_lang)
 	                   | ((u64) SortDirection::ascending  << SORTDIRECTION_SHIFT)
 	                   | ((u64) SortMethod::alpha         << SORTMETHOD_SHIFT)
 	                   | FLAG0_SEARCH_ECONTENT            | FLAG0_WARN_NO_BASE
-	                   | FLAG0_ALLOW_LED                  | FLAG0_DEFAULT_REINSTALL;
+	                   | FLAG0_ALLOW_LED;
 
 	g_nsettings.max_elogs = 3;
 	g_nsettings.theme_path = SPECIAL_LIGHT;
@@ -201,6 +204,8 @@ static void apply_migrations()
 		{ } /* this one is just here as a courtesy */
 	if(g_nsettings.migration < migration_goto_region)
 		g_nsettings.flags0 |= FLAG0_GOTO_REGION;
+	if(g_nsettings.migration < migration_rev_reinstall)
+		g_nsettings.flags0 &= ~FLAG0_DEFAULT_REINSTALL;
 	/* in the future more migrations may be written here */
 	g_nsettings.migration = LATEST_MIGRATION;
 	write_settings();
@@ -985,36 +990,44 @@ void show_settings()
 #include "build/light_hstx.h"
 #include "build/dark_hstx.h"
 
+/* due to pushing changing the pointers of the vector ... */
+static ui::Theme *get_light_theme()
+{
+	return &g_avail_themes[light_theme_index];
+}
+
 void load_current_theme()
 {
 	ui::Theme cthem;
 
-	int isDefaultLight = g_nsettings.theme_path == SPECIAL_LIGHT;
+	ui::Theme *light_theme;
+
+	/* we must first load the theme we **don't** want to select */
+	int firstIndex = g_nsettings.theme_path == SPECIAL_LIGHT ? 1 : 0;
+	light_theme_index = firstIndex;
+	int secondIndex = 1 - firstIndex;
 	static const struct {
 		const char *name;
 		const u8 *data;
 		u32 size;
 	} sets[] = {
-		{ .name = SPECIAL_LIGHT, .data = light_hstx, .size = light_hstx_size },
-		{ .name = SPECIAL_DARK, .data = dark_hstx, .size = dark_hstx_size },
+		/* keep in this order */
+		{ .name = SPECIAL_LIGHT, .data = light_hstx_bin, .size = light_hstx_bin_size },
+		{ .name = SPECIAL_DARK, .data = dark_hstx_bin, .size = dark_hstx_bin_size },
 	};
 
-	panic_assert(cthem.open(sets[1 - isDefaultLight].data, sets[1 - isDefaultLight].size, sets[1 - isDefaultLight].name, nullptr), "failed to parse built-in theme");
+	panic_assert(cthem.open(sets[firstIndex].data, sets[firstIndex].size, sets[firstIndex].name, nullptr), "failed to parse built-in theme");
 	g_avail_themes.push_back(cthem);
-	if(!isDefaultLight)
-		light_theme = &g_avail_themes.back();
 	cthem.clear();
 
-	panic_assert(cthem.open(sets[isDefaultLight].data, sets[isDefaultLight].size, sets[isDefaultLight].name, nullptr), "failed to parse built-in theme");
+	panic_assert(cthem.open(sets[secondIndex].data, sets[secondIndex].size, sets[secondIndex].name, nullptr), "failed to parse built-in theme");
 	g_avail_themes.push_back(cthem);
-	if(isDefaultLight)
-		light_theme = &g_avail_themes.back();
 	cthem.clear();
 
 	if(strncmp(g_nsettings.theme_path.c_str(), SPECIAL_PREFIX, sizeof(SPECIAL_PREFIX) - 1) != 0)
 	{
 		/* it's fine if this fails, we'll just take special:light in that case */
-		cthem.open(g_nsettings.theme_path.c_str(), light_theme);
+		cthem.open(g_nsettings.theme_path.c_str(), get_light_theme());
 		g_avail_themes.push_back(cthem);
 	}
 }
@@ -1035,18 +1048,21 @@ static void load_themes()
 			if(ent->d_type != DT_REG) continue;
 			strcpy(fname + dirname_len, ent->d_name);
 			cthem.clear();
-			if(ui::Theme::global()->id != fname && cthem.open(fname, light_theme))
+			if(ui::Theme::global()->id != fname && cthem.open(fname, get_light_theme()))
 				g_avail_themes.push_back(cthem);
 		}
 		closedir(d);
 	}
 }
 
-
 void show_theme_menu()
 {
-	if(g_avail_themes.size() == 1)
+	static int loaded_full = false;
+	if(!loaded_full)
+	{
 		load_themes(); /* lazy load all themes */
+		loaded_full = true;
+	}
 	ui::RenderQueue queue;
 	ui::MenuSelect *ms;
 	ui::Text *author, *name;

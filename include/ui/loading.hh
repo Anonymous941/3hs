@@ -34,8 +34,12 @@ namespace ui
 			float height() override { return 0.0f; }
 			float width() override { return 0.0f; }
 
+			bool processes_in_sleep() override { return true; }
+			bool process_in_sleep() override;
+
 
 		private:
+			bool perform_frame_setup(ui::Keys *keys);
 			void update_text(time_t now);
 
 			ui::ScopedWidget<ui::Text> text;

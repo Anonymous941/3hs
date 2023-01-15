@@ -14,6 +14,7 @@
  * this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
+#include "httpclient.hh"
 #include "settings.hh"
 #include "install.hh"
 #include "thread.hh"
@@ -33,450 +34,290 @@ namespace ui
 	u32 kHeld();
 }
 
-//#define BUFSIZE 0x80000
-#define BUFSIZE 0x10000
+using expandable_binary_data_type = std::basic_string<u8>;
 
-enum class ITC // inter thread communication
-{
-	normal, exit, timeoutscr
+namespace install { Handle active_cia_handle = CIA_HANDLE_INVALID; }
+using install::active_cia_handle;
+
+/* defined in file_fwd.cc */
+Result install_forwarder(u8 *data, size_t len);
+
+enum class ThreadState {
+	Installing,
+	Timeout,
+	Abort,
+	Finished,
 };
 
-enum class ActionType {
-	install,
-	download,
+struct thread_data {
+	http::ResumableDownload *downloader;
+	get_url_func *get_url;
+	LightEvent thread_to_ui_event;
+	LightEvent ui_to_thread_event;
+	Result last_result;
+	ThreadState state;
 };
 
-using content_type = std::basic_string<u8>;
-
-typedef struct cia_net_data
-{
-	union {
-		// We write to this handle
-		Handle cia;
-		// Or write to this basic_string
-		content_type *content;
-	};
-	// At what index are we writing __the cia__ now?
-	u32 index = 0;
-	// Total cia size
-	u32 totalSize = 0;
-	// Messages back and forth the UI/Install thread
-	ITC itc = ITC::normal;
-	// Buffer. allocated on heap for extra storage
-	u8 *buffer = nullptr;
-	// amount of data in the buffer
-	u32 bufferSize = 0;
-	// Tells second thread to wake up
-	Handle eventHandle;
-	// Type of action
-	ActionType type;
-} cia_net_data;
-
-
-static Result i_install_net_cia(std::string url, cia_net_data *data, size_t from, httpcContext *pctx)
-{
-	u32 status = 0, dled = 0, remaining, dlnext, written;
-	Result res = 0;
-#define CHECKRET(expr) if(R_FAILED(res = ( expr ) )) goto err
-
-	/* configure */
-	if(R_FAILED(res = httpcOpenContext(pctx, HTTPC_METHOD_GET, url.c_str(), 0)))
-		return res;
-	CHECKRET(httpcSetSSLOpt(pctx, SSLCOPT_DisableVerify));
-	CHECKRET(httpcSetKeepAlive(pctx, HTTPC_KEEPALIVE_ENABLED));
-	CHECKRET(httpcAddRequestHeaderField(pctx, "Connection", "Keep-Alive"));
-	CHECKRET(httpcAddRequestHeaderField(pctx, "User-Agent", USER_AGENT));
-	CHECKRET(proxy::apply(pctx));
-
-	if(from != 0)
-	{
-		CHECKRET(httpcAddRequestHeaderField(pctx, "Range", ("bytes=" + std::to_string(from) + "-").c_str()));
-	}
-
-	CHECKRET(httpcBeginRequest(pctx));
-
-	CHECKRET(httpcGetResponseStatusCode(pctx, &status));
-	vlog("Download status code: %lu", status);
-
-	// Do we want to redirect?
-	if(status / 100 == 3)
-	{
-		char newurl[2048];
-		CHECKRET(httpcGetResponseHeader(pctx, "location", newurl, sizeof(newurl)));
-		newurl[sizeof(newurl) - 1] = '\0';
-		std::string redir(newurl);
-
-		vlog("Redirected to %s", redir.c_str());
-		httpcCancelConnection(pctx);
-		httpcCloseContext(pctx);
-		return i_install_net_cia(redir, data, from, pctx);
-	}
-
-	// Are we resuming and does the server support range?
-	if(from != 0)
-	{
-		/* fuck me
-		 * before this if used to be && meaning if from != 0 it would always fail
-		 * reason: status != 200 check was added later than range support */
-		if(status != 206)
-		{
-			elog("expected 206 but got %lu", status);
-			res = APPERR_NORANGE;
-			goto err;
-		}
-	}
-	// Bad status code
-	else if(status != 200)
-	{
-		elog("HTTP status was NOT 200 but instead %lu", status);
-		res = APPERR_NON200;
-		goto err;
-	}
-
-  /* Only if from is 0 do we get the full size, else this would return fullSize - from */
-	if(from == 0)
-		CHECKRET(httpcGetDownloadSizeState(pctx, nullptr, &data->totalSize));
-	/* else data->totalSize is already known */
-	if(data->totalSize == 0)
-	{
-#ifndef RELEASE
-		char buffer[0x6000];
-		u32 total;
-		httpcDownloadData(pctx, (u8 *) buffer, sizeof(buffer), &total);
-		buffer[total] = '\0';
-		dlog("API data on '%s' (probably json):\n%s", url.c_str(), buffer);
-#endif
-		res = APPERR_NOSIZE;
-		goto err;
-	}
-	svcSignalEvent(data->eventHandle);
-
-	// Install.
-	panic_assert(data->totalSize > from, "invalid download start position");
-	remaining = data->totalSize - from;
-	dlnext = remaining < BUFSIZE ? remaining : BUFSIZE;
-	written = 0;
-
-	while(data->index != data->totalSize)
-	{
-		dlog("receiving data, dlnext=%lu, progress is (session:%lu)%lu/%lu", dlnext, dled, data->index, data->totalSize);
-		panic_if(dlnext > BUFSIZE, "dlnext is invalid");
-		/* 8 seconds timeout */
-		res = httpcReceiveDataTimeout(pctx, data->buffer, dlnext, 8000000000L);
-		vlog("httpcReceiveDataTimeout(): 0x%08lX", res);
-		if((R_FAILED(res) && res != (Result) HTTPC_RESULTCODE_DOWNLOADPENDING) || R_FAILED(res = httpcGetDownloadSizeState(pctx, &dled, nullptr)))
-		{
-			elog("aborted http connection due to error: %08lX.", res);
-			goto err;
-		}
-		panic_assert(dled + from == data->index + dlnext, "only a chunk was downloaded");
-
-#define CHK_EXIT \
-		if(data->itc == ITC::exit) \
-		{ \
-			dlog("aborted http connection due to ITC::exit"); \
-			res = APPERR_CANCELLED; \
-			goto cancelled; \
-		}
-		CHK_EXIT
-		dlog("Writing, size=%lu,index=%lu,totalSize=%lu,remaining=%lu", dlnext, data->index, data->totalSize, remaining);
-		if(data->type == ActionType::install)
-		{
-			/* we don't need to add the FS_WRITE_FLUSH flag because AM just ignores write flags... */
-			if(R_FAILED(res = FSFILE_Write(data->cia, &written, data->index, data->buffer, dlnext, 0)))
-				goto err;
-		}
-		else
-			data->content->append(data->buffer, dlnext);
-		remaining -= dlnext;
-		data->index += dlnext;
-		CHK_EXIT
-#undef CHK_EXIT
-
-		dlnext = remaining < BUFSIZE ? remaining : BUFSIZE;
-		svcSignalEvent(data->eventHandle);
-	}
-
-err:
-	httpcCancelConnection(pctx);
-cancelled:
-	httpcCloseContext(pctx);
-	if(data->index == data->totalSize)
-		data->itc = ITC::exit;
-	svcSignalEvent(data->eventHandle);
-	return res;
-#undef CHECKRET
-}
-
-static void i_install_loop_thread_cb(Result& res, get_url_func get_url, cia_net_data& data, httpcContext& hctx)
+static void install_generic_thread(thread_data *data)
 {
 	std::string url;
+	Result res;
+
+	data->downloader->set_notify_event(&data->thread_to_ui_event);
 
 	if(!ISET_RESUME_DOWNLOADS)
 	{
-		if((url = get_url(res)) == "")
+		res = (*data->get_url)(url);
+		if(R_FAILED(res))
 		{
-			elog("failed to fetch url: %08lX", res);
+			elog("failed to fetch URL: %08lX", res);
 			goto out;
 		}
-		res = i_install_net_cia(url, &data, 0, &hctx);
-		goto out;
+		data->downloader->set_target(url, HTTPC_METHOD_GET);
+		res = data->downloader->execute_once();
 	}
-
-	// install loop
-	while(data.itc != ITC::exit)
+	else
 	{
-		url = get_url(res);
-		if(R_SUCCEEDED(res))
-			res = i_install_net_cia(url, &data, data.index + data.bufferSize, &hctx);
-
-		if(R_FAILED(res)) { elog("Failed in install loop. ErrCode=0x%08lX", res); }
-		if(R_MODULE(res) == RM_HTTP)
+		while(data->state == ThreadState::Installing)
 		{
-			ilog("timeout.? ui::timeoutscreen() is up.");
-			// Does the user want to stop?
-
-			data.itc = ITC::timeoutscr;
-			svcSignalEvent(data.eventHandle);
-			/* other thread wakes up */
-			svcWaitSynchronization(data.eventHandle, U64_MAX);
-			data.itc = ITC::normal;
-			if(res == APPERR_CANCELLED)
-				break; /* finished */
-			continue;
-		}
-
-		// Installation was a fail or succeeded, so we stop
-		break;
-	}
-out:
-	data.itc = ITC::exit;
-	svcSignalEvent(data.eventHandle);
-}
-
-static Result i_install_resume_loop(get_url_func get_url, prog_func prog, cia_net_data *data)
-{
-	Result res;
-	data->buffer = new u8[BUFSIZE];
-
-	if(R_FAILED(res = svcCreateEvent(&data->eventHandle, RESET_ONESHOT)))
-		return res;
-
-	httpcContext hctx;
-
-	// Install thread
-	ctr::thread<Result&, get_url_func, cia_net_data&, httpcContext&> th
-		(i_install_loop_thread_cb, 1, res, get_url, *data, hctx);
-
-	Handle timer;
-	svcCreateTimer(&timer, RESET_ONESHOT);
-	/* fire the timer at least every 0.1 second */
-	svcSetTimer(timer, 100000000L, 100000000L);
-
-	Handle handles[2] = { data->eventHandle, timer };
-	s32 outhandle;
-
-	// UI Loop
-	while(data->itc != ITC::exit)
-	{
-		svcWaitSynchronizationN(&outhandle, handles, sizeof(handles) / sizeof(Handle), false, U64_MAX);
-		/* other thread signals state update */
-		if(outhandle == 0)
-		{
-			if(data->itc == ITC::exit)
-				break;
-			if(data->itc == ITC::timeoutscr)
+			res = (*data->get_url)(url);
+			if(R_SUCCEEDED(res))
 			{
-				/* we need to display a timeout screen */
-				bool wantsQuit = ui::timeoutscreen(res, 10);
-				if(wantsQuit) res = APPERR_CANCELLED;
-				prog(data->index, data->totalSize);
-				/* signal that other thread can wake up again */
-				svcSignalEvent(data->eventHandle);
-				if(wantsQuit) break;
+				data->downloader->set_target(url, HTTPC_METHOD_GET);
+				res = data->downloader->execute_once();
+				if(R_FAILED(res))
+					elog("Failed to execute_once: %08lX", res);
 			}
-			else
-				prog(data->index, data->totalSize);
-		}
-		/* check for hid event */
-		ui::scan_keys();
-		/* we want to actually cancel the handle so lets not exit() here already if aptMainLoop() is called */
-		if(!aptMainLoop() || ((ui::kDown() | ui::kHeld()) & (KEY_B | KEY_START)))
-		{
-			res = APPERR_CANCELLED;
-			httpcCancelConnection(&hctx);
+			else elog("Failed to fetch URL: %08lX", res);
+
+			if(R_MODULE(res) == RM_HTTP)
+			{
+				/* there has probably been a timeout, we have to
+				 * show this to the user and continue in due time */
+				data->last_result = res;
+				data->state = ThreadState::Timeout;
+				LightEvent_Signal(&data->thread_to_ui_event);
+				LightEvent_Wait(&data->ui_to_thread_event);
+				/* the ui thread will set data->state to ThreadState::Insalling
+				 * or ThreadState::Abort depending on what the user wants */
+				continue;
+			}
+
+			/* Two cases:
+			 *  - install succeeded: result is 0 and the above if is not reached; we want to break
+			 *  - install failed (non-http error): result is not 0 and the above is not reached; we want to break */
 			break;
 		}
+		if(data->state == ThreadState::Abort)
+			res = APPERR_CANCELLED;
 	}
 
-	data->itc = ITC::exit;
-	th.join();
-
-	svcCloseHandle(data->eventHandle);
-	svcCloseHandle(timer);
-
-	delete [] data->buffer;
-	return res;
+out:
+	data->last_result = res;
+	data->state = ThreadState::Finished;
+	LightEvent_Signal(&data->thread_to_ui_event);
+	return;
 }
 
-static const char *dest2str(FS_MediaType dest)
+static Result install_generic(http::ResumableDownload *downloader, get_url_func *get_url, prog_func *on_progress)
 {
-	switch(dest)
+	thread_data data;
+	LightEvent_Init(&data.thread_to_ui_event, RESET_ONESHOT);
+	LightEvent_Init(&data.ui_to_thread_event, RESET_ONESHOT);
+	data.state = ThreadState::Installing;
+	data.downloader = downloader;
+	data.get_url = get_url;
+	data.last_result = 0;
+
+	ctr::thread<thread_data *> thread(install_generic_thread, 1, std::move(&data));
+	for(;;)
 	{
-	case MEDIATYPE_GAME_CARD: return "GAME CARD";
-	case MEDIATYPE_NAND: return "NAND";
-	case MEDIATYPE_SD: return "SD";
+		LightEvent_Wait(&data.thread_to_ui_event);
+		/* te installation process is finished; we can exit this loop */
+		if(data.state == ThreadState::Finished)
+			break;
+		/* the install thread wants us to display a timeout to the user */
+		else if(data.state == ThreadState::Timeout)
+		{
+			if(ui::timeoutscreen(data.last_result, 10)) data.state = ThreadState::Abort;
+			else                                        data.state = ThreadState::Installing;
+			(*on_progress)(downloader->downloaded(), downloader->maybe_total_size());
+			LightEvent_Signal(&data.ui_to_thread_event);
+		}
+		/* the install thread wants us to simply update the progress */
+		else if(data.state == ThreadState::Installing)
+			(*on_progress)(downloader->downloaded(), downloader->maybe_total_size());
+		/* now we check if the user wants to abort */
+		/* TODO: Ideally we'd subscribe to an event that tells us when
+		 *       a button is pressed... */
+		ui::scan_keys();
+		/* The abort() will cause the ResumableDownload to return APPERR_CANCELLED, which in
+		 * turn is futher thrown down more to cause an abort when ready to cancel */
+		if(!aptMainLoop() || ((ui::kDown() | ui::kHeld()) & (KEY_B | KEY_START)))
+			downloader->abort();
 	}
-	return "INVALID VALUE";
+
+	thread.join();
+	return data.last_result;
 }
 
-static Result net_cia_impl(get_url_func get_url, hsapi::htid tid, bool reinstallable, prog_func prog, cia_net_data *data)
+static bool have_enough_space(ctr::Destination dest, u32 min_space)
 {
-	FS_MediaType dest = ctr::mediatype_of(tid);
-	Result ret;
-	if(data->type == ActionType::install)
-	{
-		bool tik   = ctr::ticket_exists(tid);
-		bool title = ctr::title_exists(tid, dest);
-		if(tik && !title)
-			AM_DeleteTicket(tid);
-		if(reinstallable || ISET_DEFAULT_REINSTALL)
-		{
-			if(title)
-			{
-				// Ask ninty why this stupid restriction is in place
-				// Basically reinstalling the CURRENT cia requires you
-				// To NOT delete the cia but instead have a higher version
-				// and just install like normal
-				FS_MediaType selfmt;
-				u64 selftid;
-				if(R_FAILED(ret = APT_GetAppletInfo((NS_APPID) envGetAptAppId(), &selftid, (u8 *) &selfmt, nullptr, nullptr, nullptr)))
-					return ret;
-				if(envIsHomebrew() || selftid != tid || dest != selfmt)
-				{
-					if(R_FAILED(ret = ctr::delete_title(tid, dest, true, true)))
-						return ret;
-
-					// reload dbs
-					AM_QueryAvailableExternalTitleDatabase(NULL);
-				}
-			}
-		}
-		else
-		{
-			if(title)
-				return APPERR_NOREINSTALL;
-		}
-
-		ilog("Installing %016llX to %s", tid, dest2str(dest));
-		ret = AM_StartCiaInstall(dest, &data->cia);
-		ilog("AM_StartCiaInstall(...): 0x%08lX", ret);
-		if(R_FAILED(ret)) return ret;
-	}
-
-	aptSetHomeAllowed(false);
-	ret = i_install_resume_loop(get_url, prog, data);
-	aptSetHomeAllowed(true);
-
-	if(data->type == ActionType::install)
-	{
-		if(R_FAILED(ret))
-		{
-			AM_CancelCIAInstall(data->cia);
-			svcCloseHandle(data->cia);
-			return ret;
-		}
-
-		ilog("Done writing all data to CIA handle, finishing up");
-		ret = AM_FinishCiaInstall(data->cia);
-		ilog("AM_FinishCiaInstall(...): 0x%08lX", ret);
-		svcCloseHandle(data->cia);
-	}
-
-	return ret;
+	u64 freeSpace;
+	Result res;
+	if(R_FAILED(res = ctr::get_free_space(dest, &freeSpace)))
+		return false;
+	return min_space <= freeSpace;
 }
 
-static Result i_install_hs_cia(const hsapi::FullTitle& meta, prog_func prog, bool reinstallable, cia_net_data *data, bool isKtrHint = false)
+void install::global_abort()
 {
-	ctr::Destination media = ctr::detect_dest(meta.tid);
-	u64 freeSpace = 0;
+	if(active_cia_handle != CIA_HANDLE_INVALID)
+	{
+		AM_CancelCIAInstall(active_cia_handle);
+		svcCloseHandle(active_cia_handle);
+	}
+}
+
+struct TitleInformation {
+	u64 tid;
+	bool isKTR;
+	u16 version;
+};
+
+static Result install_generic_cia(get_url_func *get_url, prog_func *on_progress, bool reinstallable, const TitleInformation& info)
+{
+	panic_assert(active_cia_handle == CIA_HANDLE_INVALID, "May only install one CIA at a time");
+
+	/* firstly we perform the prerequisite checks */
+	FS_MediaType dest = ctr::mediatype_of(info.tid);
 	Result res;
 
-	if(R_FAILED(res = ctr::get_free_space(media, &freeSpace)))
-		return res;
+	/* check if the title is already installed and perhaps reinstall */
+	bool has_ticket = ctr::ticket_exists(info.tid);
+	bool has_title  = ctr::title_exists(info.tid, dest);
+	if(has_ticket && !has_title)
+	{
+		ctr::delete_ticket(info.tid);
+		/* reload dbs */
+		AM_QueryAvailableExternalTitleDatabase(NULL);
+	}
+	AM_TitleEntry entry;
+	/* only reinstall if we want to update */
+	/* TODO: We should probably attempt to get this info from the CIA when the first chunk downloads */
+	if(has_title && !(R_FAILED(ctr::get_title_entry(info.tid, entry)) || entry.version > info.version))
+	{
+		if(reinstallable || ISET_DEFAULT_REINSTALL)
+		{
+			FS_MediaType mydest;
+			u64 mytid;
+			if(R_FAILED(res = APT_GetAppletInfo((NS_APPID) envGetAptAppId(), &mytid, (u8 *) &mydest, nullptr, nullptr, nullptr)))
+				return res;
+			/* we can only delete titles that are not ourselves */
+			if(envIsHomebrew() || mytid != info.tid || mydest != dest)
+			{
+				if(R_FAILED(res = ctr::delete_title(info.tid, dest, ctr::DeleteTitleFlag::DeleteTicket | ctr::DeleteTitleFlag::CheckExistance)))
+					return res;
+				/* reload dbs */
+				AM_QueryAvailableExternalTitleDatabase(NULL);
+			}
+		}
+		else return APPERR_NOREINSTALL;
+	}
 
-	if(meta.size > freeSpace)
-		return APPERR_NOSPACE;
-
-	// Check if we are NOT on a n3ds and the game is n3ds exclusive
-	bool isNew = false;
-	if(R_FAILED(res = APT_CheckNew3DS(&isNew)))
-		return res;
-
-	if(!isNew && (isKtrHint || meta.prod.rfind("KTR-", 0) == 0))
+	/* check if the title is meant exclusively for the "new" series */
+	if(info.isKTR && !ctr::running_on_new_series())
 		return APPERR_NOSUPPORT;
 
-	return net_cia_impl([meta](Result& res) -> std::string {
-		std::string ret;
-		if(R_FAILED(res = hsapi::get_download_link(ret, meta)))
-			return "";
-		return ret;
-	}, meta.tid, reinstallable, prog, data);
+	/* we can only start the CIA installation a bit later due to
+	 * some checks requiring file size, which is gotten through
+	 * downloader.on_total_size_try_get() */
+
+	http::ResumableDownload downloader;
+	Handle ciaHandle = CIA_HANDLE_INVALID;
+	u32 written;
+
+	downloader.on_total_size_try_get([&]() -> Result {
+		if(!downloader.maybe_total_size())
+			return APPERR_NOSIZE;
+		/* we do a little "do we have the required size" check before we do the actual work */
+		ctr::Destination dest = ctr::detect_dest(info.tid);
+		if(!have_enough_space(dest, downloader.maybe_total_size()))
+			return APPERR_NOSPACE;
+
+		/* just here can we actually start installing */
+		res = AM_StartCiaInstall(ctr::to_mediatype(dest), &ciaHandle);
+		if(R_FAILED(res)) ciaHandle = CIA_HANDLE_INVALID;
+		active_cia_handle = ciaHandle;
+		return res;
+	});
+
+	downloader.on_chunk([&](size_t chunk_size) -> Result {
+		/* we don't need to add the FS_WRITE_FLUSH flag because AM just ignores write flags... */
+		return FSFILE_Write(ciaHandle, &written, downloader.downloaded(), downloader.data_buffer(), chunk_size, 0);
+	});
+
+	res = install_generic(&downloader, get_url, on_progress);
+	ilog("install_generic returned %08lX", res);
+
+	/* finalize install */
+	if(ciaHandle != CIA_HANDLE_INVALID)
+	{
+		if(R_FAILED(res)) AM_CancelCIAInstall(ciaHandle);
+		else              res = AM_FinishCiaInstall(ciaHandle);
+		svcCloseHandle(ciaHandle);
+	}
+	active_cia_handle = CIA_HANDLE_INVALID;
+
+	ilog("final return of install_generic_cia is %08lX", res);
+	return res;
 }
 
 Result install::net_cia(get_url_func get_url, u64 tid, prog_func prog, bool reinstallable)
 {
-	cia_net_data data;
-	data.type = ActionType::install;
-	return net_cia_impl(get_url, tid, reinstallable, prog, &data);
+	return install_generic_cia(&get_url, &prog, reinstallable, { tid, false, 0 });
 }
 
 Result install::hs_cia(const hsapi::FullTitle& meta, prog_func prog, bool reinstallable)
 {
-	cia_net_data data;
-	/* we instead want to use the theme installer installation method */
+	Result res;
+	get_url_func get_url = [meta](std::string& ret) -> Result {
+		return hsapi::get_download_link(ret, meta);
+	};
+
 	if(meta.flags & hsapi::TitleFlag::installer)
 	{
 		ilog("installing installer content");
-		content_type content;
-		data.content = &content;
-		data.type = ActionType::download;
-		Result res;
-		if(R_FAILED(res = i_install_hs_cia(meta, prog, reinstallable, &data)))
-			return res;
-		/* trust me this'll be fine */
+
+		expandable_binary_data_type content;
+		http::ResumableDownload downloader;
+
+		downloader.on_total_size_try_get([&]() -> Result {
+			if(!downloader.maybe_total_size())
+				return APPERR_NOSIZE;
+			/* file forwarders will always install to the SD card */
+			if(!have_enough_space(ctr::DEST_Sdmc, downloader.maybe_total_size()))
+				return APPERR_NOSPACE;
+			content.reserve(downloader.maybe_total_size());
+			return 0;
+		});
+
+		downloader.on_chunk([&](size_t chunk_size) -> Result {
+			content.append(downloader.data_buffer(), chunk_size);
+			return 0;
+		});
+
+		res = install_generic(&downloader, &get_url, &prog);
+		if(R_FAILED(res)) return res;
 		return install_forwarder((u8 *) content.c_str(), content.size());
 	}
-	ilog("installing normal content");
-	data.type = ActionType::install;
-	return i_install_hs_cia(meta, prog, reinstallable, &data, meta.flags & hsapi::TitleFlag::is_ktr);
-}
-
-// HTTPC
-
-// https://3dbrew.org/wiki/HTTPC:SetProxy
-Result httpcSetProxy(httpcContext *context, u16 port, u32 proxylen, const char *proxy,
-	u32 usernamelen, const char *username, u32 passwordlen, const char *password)
-{
-	u32 *cmdbuf = getThreadCommandBuffer();
-
-	cmdbuf[0]  = IPC_MakeHeader(0x000D, 0x5, 0x6); // 0x000D0146
-	cmdbuf[1]  = context->httphandle;
-	cmdbuf[2]  = proxylen;
-	cmdbuf[3]  = port & 0xFFFF;
-	cmdbuf[4]  = usernamelen;
-	cmdbuf[5]  = passwordlen;
-	cmdbuf[6]  = (proxylen << 14) | 0x2;
-	cmdbuf[7]  = (u32) proxy;
-	cmdbuf[8]  = (usernamelen << 14) | 0x402;
-	cmdbuf[9]  = (u32) username;
-	cmdbuf[10] = (passwordlen << 14) | 0x802;
-	cmdbuf[11] = (u32) password;
-
-	Result ret = 0;
-	if(R_FAILED(ret = svcSendSyncRequest(context->servhandle)))
-		return ret;
-
-	return cmdbuf[1];
+	else
+	{
+		res = install_generic_cia(&get_url, &prog, reinstallable,
+			{ meta.tid,
+			  (meta.flags & hsapi::TitleFlag::is_ktr) || strncmp(meta.prod.c_str(), "KTR-", 4) == 0,
+			  meta.version });
+	}
+	return res;
 }
 

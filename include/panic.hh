@@ -24,21 +24,48 @@
 
 #include "error.hh"
 
-#ifdef RELEASE
-	#define panic(...) panic_impl(std::string(__func__) + "@" + std::to_string(__LINE__) __VA_OPT__(,) __VA_ARGS__)
+#ifndef RELEASE
+	#define SOURCE_LOCATION const char *func = __builtin_FUNCTION(), const char *file = __builtin_FILE(), size_t line = __builtin_LINE()
+	#define WITH_DEBUG(...) __VA_ARGS__
 #else
-	#define panic(...) panic_impl(std::string(PANIC_FILENAME) + ":" + std::string(__func__) + "@" + std::to_string(__LINE__) __VA_OPT__(,) __VA_ARGS__)
-	#define PANIC_FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
+	#define SOURCE_LOCATION const char *func = __builtin_FUNCTION(), const char *file = NULL, size_t line = __builtin_LINE()
+	#define WITH_DEBUG(...)
 #endif
+#define PASS_SOURCE_LOCATION func, file, line
+
+class SourceLocation {
+public:
+	static SourceLocation Caller(SOURCE_LOCATION)
+	{
+		return SourceLocation { PASS_SOURCE_LOCATION };
+	}
+
+	static SourceLocation Null()
+	{
+		return SourceLocation { nullptr, nullptr, 0 };
+	}
+
+	const char *function_name() const { return this->function; }
+	void log(const char *msg = "called") const;
+	std::string to_string() const;
+
+private:
+	explicit SourceLocation(SOURCE_LOCATION)
+		: function(func), filename(file), lineno(line) { }
+
+	const char *function, *filename;
+	size_t lineno;
+};
+
 #define panic_if_err_3ds(result) do { Result res = (result); if(R_FAILED(res)) panic(res); } while(0)
 #define panic_assert(cond, msg) if(!(cond)) panic("Assertion failed\n" #cond "\n" msg)
 #define panic_if(cond, msg) if((cond)) panic("Assertion failed\n" #cond "\n" msg)
 
 void handle_error(const error_container& err, const std::string *label = nullptr);
 
-[[noreturn]] void panic_impl(const std::string& caller, const std::string& msg);
-[[noreturn]] void panic_impl(const std::string& caller, Result res);
-[[noreturn]] void panic_impl(const std::string& caller);
+[[noreturn]] void panic(const std::string& msg, const SourceLocation& = SourceLocation::Caller());
+[[noreturn]] void panic(Result res, const SourceLocation& = SourceLocation::Caller());
+[[noreturn]] void panic(const SourceLocation& = SourceLocation::Caller());
 
 void gfx_was_init();
 

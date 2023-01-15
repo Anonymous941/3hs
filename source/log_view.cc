@@ -48,9 +48,8 @@ static bool upload_logs()
 		free(data);
 		return true;
 	}
-	std::string sdata(data, rsize);
 	std::string id;
-	Result res = hsapi::call(hsapi::upload_log, sdata.c_str(), std::move(size), id);
+	Result res = hsapi::call(hsapi::upload_log, (const char *) data, (u32) rsize, id);
 	free(data);
 	if(R_FAILED(res))
 	{

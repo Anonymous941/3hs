@@ -32,6 +32,14 @@ typedef struct AM_TicketEntry
 #define CTR_REGION_ERROR 0xFF
 #define CTR_REGION_UNSET 0xFE
 
+#define MIIPLAZA_UNIQ_JPN 0x00208
+#define MIIPLAZA_UNIQ_USA 0x00218
+#define MIIPLAZA_UNIQ_EUR 0x00228
+#define MIIPLAZA_UNIQ_CHN 0x00268
+#define MIIPLAZA_UNIQ_KOR 0x00278
+#define MIIPLAZA_UNIQ_TWN 0x00288
+
+
 namespace ctr {
 	enum Destination
 	{
@@ -123,14 +131,18 @@ namespace ctr {
 	bool title_exists(u64 tid, FS_MediaType media = MEDIATYPE_SD);
 	bool ticket_exists(u64 tid);
 
-	Result delete_title(u64 tid, FS_MediaType media = MEDIATYPE_SD, bool and_ticket = false, bool check_exist = true);
+	namespace DeleteTitleFlag
+	{
+		enum {
+			None           = 0,
+			DeleteTicket   = 1,
+			CheckExistance = 2,
+		};
+		using Type = u32;
+	}
 
-	#define MIIPLAZA_UNIQ_JPN 0x00208
-	#define MIIPLAZA_UNIQ_USA 0x00218
-	#define MIIPLAZA_UNIQ_EUR 0x00228
-	#define MIIPLAZA_UNIQ_CHN 0x00268
-	#define MIIPLAZA_UNIQ_KOR 0x00278
-	#define MIIPLAZA_UNIQ_TWN 0x00288
+	Result delete_title(u64 tid, FS_MediaType media, DeleteTitleFlag::Type flags);
+	Result delete_ticket(u64 tid);
 
 	// tid stuff, can be inlined
 
@@ -187,8 +199,20 @@ namespace ctr {
 
 	u8 get_system_region();
 
-	Result lockNDM();
-	void unlockNDM();
+	Result increase_sleep_lock_ref();
+	void decrease_sleep_lock_ref();
+	void delete_sleep_lock();
+
+	bool running_on_new_series();
+
+	class LockedInScope
+	{
+	public:
+		LockedInScope(LightLock *lock) { LightLock_Lock(this->lock = lock); }
+		~LockedInScope() { LightLock_Unlock(this->lock); }
+	private:
+		LightLock *lock;
+	};
 }
 
 #endif

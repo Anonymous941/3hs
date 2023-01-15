@@ -499,7 +499,6 @@ int cwav_can_read(struct cwav *cw)
 	return ret;
 }
 
-/* TODO: Figure out why this fails always */
 void cwav_to_looppoint(struct cwav *cw)
 {
 	cw->frameCounters[CWAV_LEFT] = cw->frameCounters[CWAV_RIGHT] = cw->loopPoint;

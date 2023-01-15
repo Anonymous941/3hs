@@ -23,7 +23,7 @@
 #include <vector>
 #include <string>
 
-#include "build/i18n_tab.hh"
+#include "i18n_tab.hh"
 
 // ParamSTRING
 #define PSTRING(x, ...) i18n::interpolate(str::x, __VA_ARGS__)

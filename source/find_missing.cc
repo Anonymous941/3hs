@@ -38,10 +38,11 @@ bool tid_can_have_missing(hsapi::htid tid)
 	return category == 0x0000 /* normal */ || category == 0x0010 /* system title */ || category == 0x8000 /* DSiWare/TWL */;
 }
 
-ssize_t show_find_missing(hsapi::htid tid)
+Result show_find_missing(hsapi::htid tid, size_t& amount_found)
 {
-	ssize_t ret = -1;
-	ui::loading([&tid, &ret]() -> void {
+	Result ret = 0;
+	amount_found = 0;
+	ui::loading([tid, &ret, &amount_found]() -> void {
 		std::vector<hsapi::htid> installed;
 		panic_if_err_3ds(ctr::list_titles_on(MEDIATYPE_SD, installed));
 		panic_if_err_3ds(ctr::list_titles_on(MEDIATYPE_NAND, installed)); // mostly for streetpass dlc
@@ -68,14 +69,9 @@ ssize_t show_find_missing(hsapi::htid tid)
 			}
 		}
 
-		hsapi::BatchRelated related;
-		Result res = hsapi::call<hsapi::BatchRelated&, const std::vector<hsapi::htid>&>(hsapi::batch_related, related, installedGames);
-		if(R_FAILED(res)) return;
-
 		std::vector<hsapi::FullTitle> potentialInstalls;
-
-		for(size_t i = 0; i < installedGames.size(); ++i)
-			vecappend(potentialInstalls, related[installedGames[i]]);
+		ret = hsapi::scall<std::vector<hsapi::FullTitle>&, const std::vector<hsapi::htid>&>(hsapi::batch_related, potentialInstalls, installedGames);
+		if(R_FAILED(ret)) return;
 
 		std::vector<hsapi::FullTitle> newInstalls;
 		std::copy_if(potentialInstalls.begin(), potentialInstalls.end(), std::back_inserter(newInstalls), [installed](const hsapi::FullTitle& title) -> bool {
@@ -97,16 +93,22 @@ ssize_t show_find_missing(hsapi::htid tid)
 
 		for(const hsapi::FullTitle& title : newInstalls)
 			queue_add(title);
-		ret = newInstalls.size();
+		amount_found = newInstalls.size();
 	});
 	return ret;
 }
 
 void show_find_missing_all()
 {
-	ssize_t done = show_find_missing(0x0);
-	if(done == -1) return;
-	if(done == 0) ui::notice(STRING(found_0_missing));
+	size_t done;
+	Result res = show_find_missing(0x0, done);
+	if(R_FAILED(res))
+	{
+		error_container err = get_error(res);
+		report_error(err, "Find missing");
+		handle_error(err);
+	}
+	else if(done == 0) ui::notice(STRING(found_0_missing));
 	else ui::notice(PSTRING(found_missing, done));
 }
 

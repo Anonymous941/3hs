@@ -35,10 +35,12 @@ void ui::MenuSelect::setup()
 
 void ui::MenuSelect::select(size_t pos, u32 pressed_keys)
 {
-	if(this->cursor_move_callback) this->cursor_move_callback();
 	if(this->i < this->btns.size())
 		this->btns[this->i]->set_border(false);
 	this->i = pos;
+	/* must be executed after this->i is set */
+	if(this->cursor_move_callback)
+		this->cursor_move_callback();
 	if(this->i < this->btns.size())
 		this->btns[this->i]->set_border(true);
 	this->kdown = pressed_keys;

@@ -28,58 +28,77 @@
 /*     StatusLine */
 void StatusLine::reset()
 {
-	if(this->flags & 4)
+	if(this->flags & StatusLine::flag_running)
 	{
-		ui::RenderQueue::global()->find_tag(ui::tag::net_indicator)->set_hidden(!!(this->flags & 1));
-		ui::RenderQueue::global()->find_tag(ui::tag::free_indicator)->set_hidden(!!(this->flags & 2));
+		ui::RenderQueue::global()->find_tag(ui::tag::net_indicator)->set_hidden(!!(this->flags & StatusLine::flag_net_is_hidden));
+		ui::RenderQueue::global()->find_tag(ui::tag::free_indicator)->set_hidden(!!(this->flags & StatusLine::flag_free_is_hidden));
 		this->text.destroy();
 	}
 	this->flags = 0;
 }
 
-void StatusLine::run(const std::string& str)
+void StatusLine::start(const std::string& str, bool is_ticker)
 {
 	this->text.setup(this->screen, str);
 	this->text->resize(0.35f, 0.35f);
 	this->text->set_raw_y(ui::screen_height() - 10.0f);
-	this->text->set_raw_x(this->lastx = this->xpos = -this->text->width() - 10.0f);
+	this->fadeoutx = -this->text->width() - 10.0f;
+	this->text->set_raw_x(this->xpos = is_ticker ? ui::screen_width(this->screen) + 10.0f : this->fadeoutx);
 	this->text.finalize();
 
 	ui::BaseWidget *w = ui::RenderQueue::global()->find_tag(ui::tag::net_indicator);
+	this->flags |= w->is_hidden() ? 0 : StatusLine::flag_net_is_hidden;
 	w->set_hidden(true);
-	this->flags = w->is_hidden() ? 0 : 1;
 
 	w = ui::RenderQueue::global()->find_tag(ui::tag::free_indicator);
+	this->flags |= w->is_hidden() ? 0 : StatusLine::flag_free_is_hidden;
 	w->set_hidden(true);
-	this->flags |= w->is_hidden() ? 0 : 2;
 
-	this->flags |= 4;
+	this->flags |= StatusLine::flag_running;
+}
+
+void StatusLine::ticker(const std::string& str)
+{
+	this->flags = StatusLine::flag_is_ticker;
+	this->start(str, true);
+}
+
+void StatusLine::run(const std::string& str)
+{
+	this->flags = 0;
+	this->start(str, false);
 }
 
 bool StatusLine::render(ui::Keys& keys)
 {
-	/* 4 = is running */
-	if(!(this->flags & 4))
+	if(!(this->flags & StatusLine::flag_running))
 		return true;
 
 	this->text->render(keys);
 
-	/* 8 = is in position; wait 3 seconds */
-	if(this->flags & 8)
-	{
-		if(time(NULL) - this->in_pos_start > 3)
-		{
-			this->flags &= ~8;
-			this->flags |= 16;
-		}
-	}
-	/* 16 = return in progress; return to -this->text->width() - 10.0f */
-	else if(this->flags & 16)
+	/* we need to run in "ticker mode"; scroll text in screen once from right to left */
+	if(this->flags & StatusLine::flag_is_ticker)
 	{
 		this->xpos -= SLINE_MOD;
 		this->text->set_raw_x(this->xpos);
-		/* finished */
-		if(this->xpos < this->lastx)
+		if(this->xpos < this->fadeoutx)
+			this->reset();
+	}
+	/* wait 3 seconds when we get in position */
+	else if(this->flags & StatusLine::flag_is_in_position)
+	{
+		if(time(NULL) - this->in_pos_start > 3)
+		{
+			this->flags &= ~StatusLine::flag_is_in_position;
+			this->flags |= StatusLine::flag_return_in_progress;
+		}
+	}
+	/* return to -this->text->width() - 10.0f */
+	else if(this->flags & StatusLine::flag_return_in_progress)
+	{
+		this->xpos -= SLINE_MOD;
+		this->text->set_raw_x(this->xpos);
+		if(this->xpos < this->fadeoutx)
 			this->reset();
 	}
 	/* else we must progress to 5.0f */
@@ -90,7 +109,7 @@ bool StatusLine::render(ui::Keys& keys)
 		if(this->xpos > 5.0f)
 		{
 			this->in_pos_start = time(NULL);
-			this->flags |= 8;
+			this->flags |= StatusLine::flag_is_in_position;
 		}
 	}
 	return true;
@@ -99,6 +118,9 @@ bool StatusLine::render(ui::Keys& keys)
 
 bool set_focus(bool focus)
 {
+	/* panic() called before core global widgets are setup */
+	if(!ui::RenderQueue::global()->find_tag(ui::tag::action))
+		return false;
 	bool ret = ui::RenderQueue::global()->find_tag(ui::tag::action)->is_hidden();
 	ui::RenderQueue::global()->find_tag(ui::tag::settings)->set_hidden(focus);
 	ui::RenderQueue::global()->find_tag(ui::tag::search)->set_hidden(focus);
@@ -118,12 +140,26 @@ std::string set_desc(const std::string& nlabel)
 	return old;
 }
 
+void set_ticker(const std::string& text)
+{
+	StatusLine *sl = ui::RenderQueue::global()->find_tag<StatusLine>(ui::tag::status);
+	panic_assert(sl, "status line not set up");
+	sl->reset();
+	sl->ticker(text);
+}
+
 void set_status(const std::string& text)
 {
 	StatusLine *sl = ui::RenderQueue::global()->find_tag<StatusLine>(ui::tag::status);
 	panic_assert(sl, "status line not set up");
 	sl->reset();
 	sl->run(text);
+}
+
+bool status_running()
+{
+	StatusLine *sl = ui::RenderQueue::global()->find_tag<StatusLine>(ui::tag::status);
+	return sl->is_running();
 }
 
 void reset_status()

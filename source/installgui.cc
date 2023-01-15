@@ -77,7 +77,8 @@ static void finalize_install(u64 tid, bool interactive)
 	// Prompt to ask for extra content
 	if(interactive && tid_can_have_missing(tid) && ISET_SEARCH_ECONTENT)
 	{
-		ssize_t added = show_find_missing(tid);
+		size_t added;
+		show_find_missing(tid, added);
 		if(added > 0) ui::notice(PSTRING(found_missing, added));
 	}
 
@@ -154,8 +155,8 @@ Result install::gui::hs_cia(const hsapi::FullTitle& meta, bool interactive, bool
 	bool shouldReinstall = defaultReinstallable;
 	Result res = 0;
 
-	if(interactive && R_FAILED(res = ctr::lockNDM()))
-		elog("failed to lock NDM: %08lX", res);
+	if(interactive && R_FAILED(res = ctr::increase_sleep_lock_ref()))
+		elog("failed to acquire sleep mode lock: %08lX", res);
 
 start_install:
 	res = install::hs_cia(meta, [&queue, &bar](u64 now, u64 total) -> void {
@@ -191,7 +192,7 @@ start_install:
 		if(interactive) handle_error(err);
 	}
 
-	if(interactive) ctr::unlockNDM();
+	if(interactive) ctr::decrease_sleep_lock_ref();
 	/* do not reset flags: we want to trigger a LED Reset after either sleep mode lift or the timeout, not after just the timeout */
 	else            ui::LED::SetTimeout(time(NULL) + 2);
 

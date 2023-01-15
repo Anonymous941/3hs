@@ -165,9 +165,9 @@ void ui::TitleMeta::set_title(const hsapi::Title& meta)
 		.under(this->queue.back(), -1.0f)
 		.add_to(this->queue);
 
-	PAIR(hsapi::get_index()->find(meta.cat)->disp + " -> " +
-			hsapi::get_index()->find(meta.cat)->find(meta.subcat)->disp,
-		STRING(category));
+	hsapi::Category *cat = hsapi::get_index()->find(meta.cat);
+	hsapi::Subcategory *scat = cat ? cat->find(meta.subcat) : nullptr;
+	PAIR((cat ? cat->disp : meta.cat) + " -> " + (scat ? scat->disp : meta.subcat), STRING(category));
 	PAIR(ctr::tid_to_str(meta.tid), STRING(tid));
 	PAIR(std::to_string(meta.id), STRING(landing_id));
 	PAIR(ui::human_readable_size_block(meta.size), STRING(size));

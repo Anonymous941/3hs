@@ -69,10 +69,12 @@ namespace ui
 
 
 	private:
-		UI_SLOTS_PROTO(BatteryIndicator_color, 2)
-		ui::RenderQueue queue;
-		u8 isCharging = 0;
+		UI_SLOTS_PROTO(BatteryIndicator_color, 3)
+		ui::ScopedWidget<ui::Text> perc;
+		ui::ScopedWidget<ui::Sprite> fg;
+		ui::ScopedWidget<ui::Sprite> chrg;
 		u8 level = 0;
+		u8 charging = 0;
 
 
 	};

@@ -19,18 +19,52 @@
 #include <stdio.h>
 
 #include "settings.hh"
-#include "install.hh"
 #include "panic.hh"
 #include "i18n.hh"
 #include "log.hh"
 
 #define PROXYFILE "/3ds/3hs/proxy"
 
+// https://3dbrew.org/wiki/HTTPC:SetProxy
+static Result httpcSetProxy(httpcContext *context, u16 port, u32 proxylen, const char *proxy,
+	u32 usernamelen, const char *username, u32 passwordlen, const char *password)
+{
+	u32 *cmdbuf = getThreadCommandBuffer();
+
+	cmdbuf[0]  = IPC_MakeHeader(0x000D, 0x5, 0x6); // 0x000D0146
+	cmdbuf[1]  = context->httphandle;
+	cmdbuf[2]  = proxylen;
+	cmdbuf[3]  = port & 0xFFFF;
+	cmdbuf[4]  = usernamelen;
+	cmdbuf[5]  = passwordlen;
+	cmdbuf[6]  = (proxylen << 14) | 0x2;
+	cmdbuf[7]  = (u32) proxy;
+	cmdbuf[8]  = (usernamelen << 14) | 0x402;
+	cmdbuf[9]  = (u32) username;
+	cmdbuf[10] = (passwordlen << 14) | 0x802;
+	cmdbuf[11] = (u32) password;
+
+	Result ret = 0;
+	if(R_FAILED(ret = svcSendSyncRequest(context->servhandle)))
+		return ret;
+
+	return cmdbuf[1];
+}
+
+static inline Result httpcSetProxy(httpcContext *context, u16 port,
+	const std::string& proxy, const std::string& username, const std::string& password)
+{
+	return httpcSetProxy(
+		context, port, proxy.size(), proxy.c_str(),
+		username.size(), username.size() == 0 ? nullptr : username.c_str(),
+		password.size(), password.size() == 0 ? nullptr : password.c_str()
+	);
+}
+
 
 Result proxy::apply(httpcContext *context)
 {
 	NewSettings *ns = get_nsettings();
-	ilog("proxy is%s set", ns->proxy_port ? "" : " not");
 	if(ns->proxy_port)
 	{
 		return httpcSetProxy(context, ns->proxy_port, ns->proxy_host,
@@ -53,7 +87,7 @@ static void put_colonsep(const std::string& buf, std::string& p1, std::string& p
 		panic(STRING(invalid_proxy));
 
 	p1 = buf.substr(0, colon);
-	// +1 to remove colon 
+	// +1 to remove colon
 	p2 = buf.substr(colon + 1);
 }
 

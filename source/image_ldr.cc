@@ -19,6 +19,7 @@
 #include "image_ldr.hh"
 #include "panic.hh"
 #include "i18n.hh"
+#include "log.hh"
 
 #include <citro3d.h>
 #include <citro2d.h>

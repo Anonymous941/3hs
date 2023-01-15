@@ -152,6 +152,7 @@ static const std::unordered_map<Result, std::unordered_map<Result, const char *>
 			{ 12, "Title is not listed"                           },
 			{ 13, "Out of memory"                                 },
 			{ 14, "Incompatible font"                             },
+			{ 15, "Maximum HTTP redirects followed"               },
 		}
 	},
 });

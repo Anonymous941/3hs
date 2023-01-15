@@ -1,4 +1,18 @@
 
+v1.4.2 "aequaora viridia":
+ - Fix issue where changing the 3hs theme would instantly crash
+ - Fix issue where updating the base game would first delete
+ - Fix minor bugs
+
+v1.4.1 "aequaora viridia":
+ - Fix issue where closing the lid while in the timeout screen would pause the download
+ - Fix issue where 3hs would load only the dark, light and selected theme
+ - Fix issue where 3hs would freeze or crash when sleep mode was triggered
+ - Make quitting the app during an install or api requests possible via the HOME menu
+ - Make the progress bar omit the ETA if it is not known
+ - Improve stability of the api network requests
+ - General system stability improvements to enhance the user's experience
+
 v1.4.0 "aequora viridia":
  - Fix issue where an unlisted title would crash 3hs
  - Fix issue where jumping a page in a list would skip an entry
@@ -8,6 +22,7 @@ v1.4.0 "aequora viridia":
  - Fix battery indicator not turning red when only one bar is left
  - Make 3hs not remove every queue item if there was a failure, but only those that succeeded
  - Make 3hs always display the title currently being installed
+ - Make battery indicator show whether or not a charger is plugged in
  - Add a progress bar instead of spinner for deleting unused tickets
  - Add feature to place the cursor at the subcategory that matches the system region
  - Add support for the Luma3DS v11.0 configuration format
@@ -143,15 +158,13 @@ v0.2.0:
  - add luma locale emulator support
  - extended meta is now lazily loaded
  - 3hs will now ask for extra content after installing a game
- - 3hs will now warn if you're trying to install a dlc/update for a game which you
-   don't have installed
+ - 3hs will now warn if you're trying to install a dlc/update for a game which you don't have installed
  - add logs menu for clearing logs
  - add network status indicator
  - fix issue where 3hs would crash if WiFi was not available
  - fix issue where 3hs wouldn't work if time & date was wrong
  - fix issue where extended meta wasn't showing in search
- - fix issue where 3hs was unable to load a title name if the name contained any
-   complex characters
+ - fix issue where 3hs was unable to load a title name if the name contained any complex characters
 
 v0.1.6:
  - added extended meta screen

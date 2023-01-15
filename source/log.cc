@@ -31,6 +31,12 @@
 #define F "/3ds/3hs/3hs.log"
 #define GEN_MAX_LEN 200
 
+#if defined(RELEASE) && !defined(FULL_LOG)
+	#define DEBUG_FEATURES 0
+#else
+	#define DEBUG_FEATURES 1
+#endif
+
 static FILE *log_file = NULL;
 static LightLock file_lock = -1;
 
@@ -80,14 +86,14 @@ static FILE *open_f()
 static void write_string(const char *s)
 {
 	LightLock_Lock(&file_lock);
-#ifndef RELEASE
+#if DEBUG_FEATURES
 	fputs(s, stderr);
 #endif
 
 	if(log_file)
 	{
 		fputs(s, log_file);
-#ifndef RELEASE
+#if DEBUG_FEATURES
 		fflush(log_file);
 #endif
 	}
@@ -134,7 +140,7 @@ void log_init()
 {
 	/* already initialized */
 	if(log_file) return;
-#ifndef RELEASE
+#if DEBUG_FEATURES
 	consoleDebugInit(debugDevice_SVC);
 #endif
 
@@ -164,14 +170,15 @@ const char *log_filename()
 
 void log_flush()
 {
-#ifdef RELEASE
 	fflush(log_file);
-#endif
 }
 
 extern "C" void _logf(const char *fnname, const char *filen,
 	size_t line, LogLevel lvl, const char *fmt, ...)
 {
+	/* early log, we can't log yet */
+	if(file_lock == -1)
+		return;
 //	if(lvl > MAX_LVL)
 //		return; /* check is done in header */
 

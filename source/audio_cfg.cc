@@ -65,8 +65,7 @@ static void cache_meta()
 	cwav_meta meta;
 	while((ent = readdir(d)))
 	{
-		if(strcmp(ent->d_name, ".") == 0 || strcmp(ent->d_name, "..") == 0)
-			continue;
+		if(ent->d_type != DT_REG) continue;
 		meta.path = MUSIC_DIR "/" + std::string(ent->d_name);
 		if(cwav_init(&cw, meta.path.c_str()) != 0) continue;
 		meta.title = cw.title;

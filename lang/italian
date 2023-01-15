@@ -426,49 +426,38 @@ da %1
 - themes
 Temi
 
-# nowrap, burger menu item
 - delete_unused_tickets
 Rimuovi biglietti non utilizzati
 
-# asking user if they want to delete unused tickets, %1 = amount of unused tickets that were found
 - found_unused_tickets
 Trovato %1 biglietto/i non utilizzato/i. Vuoi rimuoverli?
 
-# informing user that no missing tickets were found
 - found_no_unused_tickets
 Non sono stati trovati biglietti inutilizzati.
 
-# don't translate "Enable developer UNITINFO", ENVINFO may be translated as configuration, retail may be translated as normal, unit may be translated as variant
 - dev_unitinfo
 Secondo questa console ENVINFO, questa è un'unità di sviluppo.
 3hs non funzionerà correttamente su questo sistema.
 Nel caso in cui hai un 3DS retail, assicurati che "Abilita lo sviluppatore UNITINFO" nella configurazione di Luma3DS sia disabilitato.
 
-# nowrap, used in for examples language select
 - hint_navigate
 UI_GLYPH_DPAD_CLEAR/UI_GLYPH_CPAD: naviga
 
-# %1 = theme author
 - made_by
 creato da %1
 
-# nowrap, burger menu item
 - themes
 Temi
 
-# nowrap, burger menu item
 - delete_unused_tickets
 Elimina i ticket inutilizzati
 
-# asking user if they want to delete unused tickets, %1 = amount of unused tickets that were found
 - found_unused_tickets
 Sono stati trovati %1 ticket non utilizzati. Li vuoi rimuovere?
 
-# informing user that no missing tickets were found
 - found_no_unused_tickets
 Non sono stati trovati ticket inutilizzati.
 
-# informing user that the preview image (for themes) that was on the server was unable to be displayed
 - invalid_theme_preview
 Anteprima del tema non valida!
 
@@ -478,30 +467,21 @@ UI_GLYPH_Y: Aggiungi alla coda
 - hint_preview_theme
 UI_GLYPH_X: Anteprima tema
 
-# used in extmeta for the alternative name, only used in japanese titles for now
 - alt_name
 Nome alternativo
 
-# setting title
 - show_alt
 Mostra nome alternativo
 
-# setting description
 - show_alt_desc
 Mostra nomi alternativi se disponibili
 
-# setting title
 - default_reinst
 Reinstalla automaticamente
 
-# setting description
 - default_reinst_desc
 Reinstalla automaticamente; non chiedere esplicitamente di eliminare un titolo già installato.
 
-# shown while installing a queue on the other screen
-#  %1 = current game title
-#  %2 = total titles
-#  %3 = current position in the queue
 - installing_game_x_of_y
 Processando fila: %2/%3
 %1
@@ -514,4 +494,158 @@ Codice prodotto non valido
 
 - search_prod
 Cerca per codice prodotto
+
+# scroll, setting title
+- disable_graph
+Disattiva grafico della latenza
+
+# setting description
+- disable_graph_desc
+Disattiva il grafico della latenza mostrato mentre installi un titolo.
+
+# scroll, setting title
+- goto_region
+Passa a sottosezione
+
+# setting description
+- goto_region_desc
+Passa alla corretta sottosezione nella selezione della sottocategoria se esiste.
+
+- add_music
+Non hai ancora aggiunto musica!
+Prova ad inserire musica in /3ds/3hs/music sulla tua scheda SD
+
+- add_playlist
+Devi ancora aggiungere playlist!
+Prova ad aggiungerle con l'opzione gestisci
+
+# noscroll, Keep the [ ], it is used in a menu with other file names
+- add_file_act
+[ aggiungi file ]
+
+# noscroll, same as above
+- add_playlist_act
+[ aggiungi playlist ]
+
+# keyboard hint
+- new_playlist_name
+Nuovo nome playlist...
+
+# noscroll, Basic audio engine options (randomize, repeat, stereo)
+- basic_options
+Opzioni base
+
+# noscroll, audio engine option
+- randomize
+Rendi casuali le playlist
+
+# noscroll, audio engine option
+- repeat
+Ripeti playlist e canzoni
+
+# noscroll, stereo ( = multichannel) audio option
+- stereo
+Stereo
+
+# noscroll, Default playlist audio option
+- default_playlist
+Playlist predefinita
+
+# noscroll, other audio engine options (select current file/playlist, manage playlists), may be translated as miscelaneous
+- other
+Varie
+
+# button, this string is followed by two buttons, one with "file" and another with "playlist", selects a playlist/file to play
+- select
+Seleziona...
+
+# button, keep lowercase, see comment on select
+- playlist
+playlist
+
+# button, keep lowercase, see comment on select
+- file
+file
+
+# button, save audio engine configuration
+- save
+Salva
+
+# button
+- manage_playlists
+Gestisci playlist
+
+# Button in more menu that leads to audio configuration.
+- audio
+Audio
+
+# button that adds everything in this category as a filter
+- everything
+Tutto in questa categoria
+
+# new search method, has the option of quick filtering of official content categories and the regions europe, north-america and japan
+- quick
+Veloce
+
+# new search method, has the option of filtering based on advanced filters like on the website
+- filters
+Filtri
+
+# Invalid title id error in new search
+- new_invalid_tid
+Errore: Inserito ID del titolo non valido
+Gli ID dei titoli sono solitamente strutturati così: 000400000008B500
+
+# Invalid product code error in new search
+- new_invalid_prod
+Errore: inserito codice prodotto non valido
+I codici prodotto sono solitamente strutturati così: CTR-P-ABCD
+
+# Subtitle of the new search methods
+- press_to_switch
+Premi UI_GLYPH_L/UI_GLYPH_R per cambiare modalità
+
+# Placeholder for empty search bar
+- empty
+(vuoto)
+
+# keyboard hint while filling the search bar for new search
+- enter_query
+Inserisci la tua domanda...
+
+# Submit new search and display resulst
+- submit
+Invia
+
+# label for content type selector for normal search
+- content_type
+Tipo di contenuto
+
+# label for content type selector, to indicate that all content types are to be included
+- all
+Tutti
+
+# label for checkbox list of categories to include in quick search
+- include_content
+Includi contenuti
+
+# label for checkbox list of regions to include in quick search
+- regions
+Regioni
+
+# label for include filters of normal search
+- include_filters
+Includi filtri
+
+# label for exclude filters of normal search
+- exclude_filters
+Escludi filtri
+
+# button, adds a filter in normal search
+- add
+Aggiungi
+
+# search menu option to open normal search
+- normal_search
+Ricerca normale
 

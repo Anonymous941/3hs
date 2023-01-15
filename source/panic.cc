@@ -21,11 +21,13 @@
 #include <ui/base.hh>
 
 #include "audio/player.h"
+#include "httpclient.hh"
 #include "install.hh"
 #include "hsapi.hh"
 #include "i18n.hh"
 #include "util.hh"
 #include "log.hh"
+#include "ctr.hh"
 
 static bool gfx_is_init = false;
 bool ns_was_init = false;
@@ -61,6 +63,11 @@ Result init_services(bool& isLuma)
 
 void exit_services()
 {
+	/* not really appropriate here, but whatever */
+	ctr::delete_sleep_lock();
+	http::ResumableDownload::global_abort();
+	install::global_abort();
+
 	if(ns_was_init)
 		nsExit();
 	mcuHwcExit();
@@ -201,10 +208,10 @@ void handle_error(const error_container& err, const std::string *label)
 	exit(0);
 }
 
-[[noreturn]] void panic_impl(const std::string& caller, const std::string& msg)
+[[noreturn]] void panic(const std::string& msg, const SourceLocation& caller)
 {
 	elog("PANIC MESSAGE -- %s", msg.c_str());
-	if(!gfx_is_init) panic_preinit_impl(caller, msg);
+	if(!gfx_is_init) panic_preinit_impl(caller.to_string(), msg);
 	ui::RenderQueue queue;
 
 	ui::builder<ui::Text>(ui::Screen::top, msg)
@@ -213,26 +220,37 @@ void handle_error(const error_container& err, const std::string *label)
 		.wrap()
 		.add_to(queue);
 
-	panic_core(caller, queue);
+	panic_core(caller.to_string(), queue);
 }
 
-[[noreturn]] void panic_impl(const std::string& caller, Result res)
+[[noreturn]] void panic(Result res, const SourceLocation& caller)
 {
 	elog("PANIC RESULT -- 0x%08lX", res);
 	if(!gfx_is_init)
-		panic_preinit_impl(caller, "Failed, result: " + pad8code(res) + "\n" + get_error(res).sDesc);
+		panic_preinit_impl(caller.to_string(), "Failed, result: " + pad8code(res) + "\n" + get_error(res).sDesc);
 	ui::RenderQueue queue;
 
 	error_container err = get_error(res);
 	pusherror(err, queue, 70.0f);
 
-	panic_core(caller, queue);
+	panic_core(caller.to_string(), queue);
 }
 
-[[noreturn]] void panic_impl(const std::string& caller)
+[[noreturn]] void panic(const SourceLocation& caller)
 {
-	if(!gfx_is_init) panic_preinit_impl(caller, "fatal panic");
+	if(!gfx_is_init) panic_preinit_impl(caller.to_string(), "fatal panic");
 	ui::RenderQueue queue;
-	panic_core(caller, queue);
+	panic_core(caller.to_string(), queue);
 }
 
+std::string SourceLocation::to_string() const
+{
+	if(this->filename) return std::string(this->function) + "@" + std::string(strrchr(this->filename, '/') + 1) + ":" + std::to_string(this->lineno);
+	else if(this->function) return std::string(this->function) + ":" + std::to_string(this->lineno);
+	else return "(null location)";
+}
+
+void SourceLocation::log(const char *msg) const
+{
+	if(this->function) dlog("%s: %s", this->to_string().c_str(), msg);
+}

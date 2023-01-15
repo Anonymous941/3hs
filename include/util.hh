@@ -23,6 +23,7 @@
 class StatusLine : public ui::BaseWidget
 { UI_WIDGET("StatusLine")
 public:
+	void ticker(const std::string& str);
 	void run(const std::string& str);
 	void reset();
 
@@ -30,10 +31,23 @@ public:
 	float height() override { return 0.0f; }
 	float width() override { return 0.0f; }
 
+	bool is_running() { return this->flags & 4; }
+
 private:
+	enum flag {
+		flag_net_is_hidden = 1,
+		flag_free_is_hidden = 2,
+		flag_running = 4,
+		flag_is_in_position = 8,
+		flag_return_in_progress = 16,
+		flag_is_ticker = 32,
+	};
+
+	void start(const std::string& str, bool is_ticker);
+
 	ui::ScopedWidget<ui::Text> text;
+	float xpos, fadeoutx;
 	time_t in_pos_start;
-	float xpos, lastx;
 	int flags = 0;
 
 };
@@ -42,8 +56,10 @@ private:
 /* returns if we were previously focussed */
 bool set_focus(bool focus);
 /* set the status line */
+void set_ticker(const std::string& text);
 void set_status(const std::string& text);
 void reset_status();
+bool status_running();
 /* sets the action description and returns the old one */
 std::string set_desc(const std::string& nlabel);
 void lower(std::string& s);

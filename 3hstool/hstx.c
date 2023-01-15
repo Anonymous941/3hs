@@ -110,35 +110,37 @@ static int make_hstx_impl(FILE *out, char *in_buf, struct dynbuf *blob, const ch
 	} descriptors[DESCRIPTOR_MAX];
 	assert(sizeof(descriptors[0]) == 0x10 && "descriptor not properly packed");
 	enum hstx_ident {
-		ID_BG_CLR            = 0x1001,
-		ID_TEXT_CLR          = 0x1002,
-		ID_BTN_BG_CLR        = 0x1003,
-		ID_BTN_BORDER_CLR    = 0x1004,
-		ID_BATTERY_GREEN_CLR = 0x1005,
-		ID_BATTERY_RED_CLR   = 0x1006,
-		ID_TOGGLE_GREEN_CLR  = 0x1007,
-		ID_TOGGLE_RED_CLR    = 0x1008,
-		ID_TOGGLE_SLID_CLR   = 0x1009,
-		ID_PROGBAR_FG_CLR    = 0x1010,
-		ID_PROGBAR_BG_CLR    = 0x1011,
-		ID_SCROLLBAR_CLR     = 0x1012,
-		ID_LED_GREEN_CLR     = 0x1013,
-		ID_LED_RED_CLR       = 0x1014,
-		ID_SMDH_BORDER_CLR   = 0x1015,
-		ID_CHKBX_BORDER_CLR  = 0x1016,
-		ID_CHKBX_CHK_CLR     = 0x1017,
-		ID_GRAPH_LINE_CLR    = 0x1018,
-		ID_WARN_CLR          = 0x1019,
-		ID_X_CLR             = 0x101A,
+		ID_BG_CLR               = 0x1001,
+		ID_TEXT_CLR             = 0x1002,
+		ID_BTN_BG_CLR           = 0x1003,
+		ID_BTN_BORDER_CLR       = 0x1004,
+		ID_BATTERY_GREEN_CLR    = 0x1005,
+		ID_BATTERY_RED_CLR      = 0x1006,
+		ID_TOGGLE_GREEN_CLR     = 0x1007,
+		ID_TOGGLE_RED_CLR       = 0x1008,
+		ID_TOGGLE_SLID_CLR      = 0x1009,
+		ID_PROGBAR_FG_CLR       = 0x1010,
+		ID_PROGBAR_BG_CLR       = 0x1011,
+		ID_SCROLLBAR_CLR        = 0x1012,
+		ID_LED_GREEN_CLR        = 0x1013,
+		ID_LED_RED_CLR          = 0x1014,
+		ID_SMDH_BORDER_CLR      = 0x1015,
+		ID_CHKBX_BORDER_CLR     = 0x1016,
+		ID_CHKBX_CHK_CLR        = 0x1017,
+		ID_GRAPH_LINE_CLR       = 0x1018,
+		ID_WARN_CLR             = 0x1019,
+		ID_X_CLR                = 0x101A,
+		ID_BATTERY_CHARGING_CLR = 0x101B,
 
-		ID_MORE_IMG          = 0x2001,
-		ID_BATTERY_IMG       = 0x2002,
-		ID_SEARCH_IMG        = 0x2003,
-		ID_SETTINGS_IMG      = 0x2004,
-		ID_SPINNER_IMG       = 0x2005,
-		ID_RANDOM_IMG        = 0x2006,
-		ID_BG_TOP_IMG        = 0x2007,
-		ID_BG_BOT_IMG        = 0x2008,
+		ID_MORE_IMG             = 0x2001,
+		ID_BATTERY_IMG          = 0x2002,
+		ID_SEARCH_IMG           = 0x2003,
+		ID_SETTINGS_IMG         = 0x2004,
+		ID_SPINNER_IMG          = 0x2005,
+		ID_RANDOM_IMG           = 0x2006,
+		ID_BG_TOP_IMG           = 0x2007,
+		ID_BG_BOT_IMG           = 0x2008,
+		ID_BATTERY_CHARGING_IMG = 0x2009,
 	};
 
 	memset(descriptors, 0, sizeof(descriptors));
@@ -266,6 +268,7 @@ static int make_hstx_impl(FILE *out, char *in_buf, struct dynbuf *blob, const ch
 		DEFCDESC("graph_line_colour", ID_GRAPH_LINE_CLR)
 		DEFCDESC("warning_colour", ID_WARN_CLR)
 		DEFCDESC("x_colour", ID_X_CLR)
+		DEFCDESC("battery_charging_colour", ID_BATTERY_CHARGING_CLR)
 		/* */
 		DEFCDESC("smdh_icon_border_colour", ID_SMDH_BORDER_CLR)
 		DEFIDESC("more_image", ID_MORE_IMG)
@@ -276,6 +279,7 @@ static int make_hstx_impl(FILE *out, char *in_buf, struct dynbuf *blob, const ch
 		DEFIDESC("random_image", ID_RANDOM_IMG)
 		DEFIDESC("background_top_image", ID_BG_TOP_IMG)
 		DEFIDESC("background_bottom_image", ID_BG_BOT_IMG)
+		DEFIDESC("battery_charging_image", ID_BATTERY_CHARGING_IMG)
 #undef DEFCDESC
 #undef DEFIDESC
 	else
