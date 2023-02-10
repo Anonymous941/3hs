@@ -17,11 +17,9 @@
 #ifndef inc_seed_hh
 #define inc_seed_hh
 
-#include <3ds/types.h> // u8, u16, u32, u64
-#include <nnc/u128.h>
 #include <hsapi.hh>
 
 /* Returns 0x0 (success) if no seed was found */
-Result add_seed(hsapi::FullTitle title);
+Result add_seed(const hsapi::Title& title);
 
 #endif

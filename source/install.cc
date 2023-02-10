@@ -176,6 +176,7 @@ void install::global_abort()
 	{
 		AM_CancelCIAInstall(active_cia_handle);
 		svcCloseHandle(active_cia_handle);
+		active_cia_handle = CIA_HANDLE_INVALID;
 	}
 }
 
@@ -278,7 +279,7 @@ Result install::net_cia(get_url_func get_url, u64 tid, prog_func prog, bool rein
 	return install_generic_cia(&get_url, &prog, reinstallable, { tid, false, 0 });
 }
 
-Result install::hs_cia(const hsapi::FullTitle& meta, prog_func prog, bool reinstallable)
+Result install::hs_cia(const hsapi::Title& meta, prog_func prog, bool reinstallable)
 {
 	Result res;
 	get_url_func get_url = [meta](std::string& ret) -> Result {

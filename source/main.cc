@@ -115,7 +115,7 @@ public:
 	{
 		this->frames_until_tip = 100;
 	}
-	
+
 	float height() override { return 0.0f; }
 	float width() override { return 0.0f; }
 
@@ -127,7 +127,8 @@ public:
 		--this->frames_until_tip;
 		if(!this->frames_until_tip)
 		{
-			set_status("Some useful tip");
+			this->frames_until_tip = ~0;
+			set_ticker("Some useful tip");
 		}
 		return true;
 	}
@@ -264,7 +265,7 @@ int main(int argc, char* argv[])
 			ui::RenderQueue::global()->render_and_then([]() -> void {
 				if(isInRand) return;
 				isInRand = true;
-				hsapi::FullTitle t;
+				hsapi::Title t;
 				if(R_SUCCEEDED(hsapi::call(hsapi::random, t)) && show_extmeta(t))
 					install::gui::hs_cia(t);
 				isInRand = false;
@@ -384,29 +385,29 @@ int main(int argc, char* argv[])
 	vlog("Done fetching index.");
 
 	size_t catptr = 0, subptr = 0, gamptr = 0;
-	const std::string *associatedcat = nullptr;
-	const std::string *associatedsub = nullptr;
-	std::vector<hsapi::Title> titles;
+	const hsapi::Category *associatedcat = nullptr;
+	const hsapi::Subcategory *associatedsub = nullptr;
+	std::vector<hsapi::PartialTitle> titles;
 	bool visited_sub = false;
 
 	// Old logic was cursed, made it a bit better :blobaww:
 	while(aptMainLoop())
 	{
 cat:
-		const std::string *cat = next::sel_cat(&catptr);
+		const hsapi::Category *cat = next::sel_cat(&catptr);
 		// User wants to exit app
 		if(cat == next_cat_exit) break;
-		ilog("NEXT(c): %s", cat->c_str());
+		ilog("NEXT(c): %s", cat->name.c_str());
 
 sub:
 		visited_sub = associatedcat == cat;
 		if(!visited_sub) subptr = 0;
 		associatedcat = cat;
 
-		const std::string *sub = next::sel_sub(*cat, &subptr, visited_sub);
+		const hsapi::Subcategory *sub = next::sel_sub(*cat, &subptr, visited_sub);
 		if(sub == next_sub_back) goto cat;
 		if(sub == next_sub_exit) break;
-		ilog("NEXT(s): %s", sub->c_str());
+		ilog("NEXT(s): %s", sub->name.c_str());
 
 		if(associatedsub != sub)
 		{
@@ -424,7 +425,7 @@ gam:
 
 		ilog("NEXT(g): %lli", id);
 
-		hsapi::FullTitle meta;
+		hsapi::Title meta;
 		if(show_extmeta_lazy(titles, id, &meta))
 			install::gui::hs_cia(meta);
 

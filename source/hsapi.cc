@@ -13,6 +13,7 @@
  * You should have received a copy of the GNU General Public License along with
  * this program. If not, see <https://www.gnu.org/licenses/>.
  */
+/* vim: foldmethod=marker */
 
 #include "httpclient.hh"
 #include "hsapi.hh"
@@ -21,7 +22,9 @@
 #include "ctr.hh"
 #include "log.hh"
 
-#include <3rd/json.hh>
+#include <nbapi/nbtypes.hh>
+#include <nbapi/nb.hh>
+
 #include <algorithm>
 #include <malloc.h>
 
@@ -29,191 +32,18 @@
 #define SOC_BUFFERSIZE  0x20000
 
 #if defined(HS_DEBUG_SERVER)
-	#define HS_BASE_LOC HS_DEBUG_SERVER ":5000/api"
+	#define HS_NB_LOC   HS_DEBUG_SERVER ":5000/nbapi"
 	#define HS_CDN_BASE HS_DEBUG_SERVER ":5001"
 	#define HS_SITE_LOC HS_DEBUG_SERVER ":5002"
 #endif
-#if !defined(HS_BASE_LOC) || !defined(HS_CDN_BASE) || !defined(HS_SITE_LOC) || !defined(HS_UPDATE_BASE)
-	#error "You must define HS_BASE_LOC, HS_CDN_BASE, HS_SITE_LOC and HS_UPDATE_BASE"
+#if !defined(HS_CDN_BASE) || !defined(HS_SITE_LOC) || !defined(HS_UPDATE_BASE) || !defined(HS_NB_LOC)
+	#error "You must define HS_CDN_BASE, HS_SITE_LOC, HS_NB_LOC and HS_UPDATE_BASE"
 #endif
 
-#define REGION_JAPAN "japan"
-#define REGION_USA "north-america"
-
-#define TRYGET_T(dst,jsn,prp,T,chkr) do { if(!jsn[prp].chkr()) { elog("Prop: " prp); return APPERR_JSON_FAIL; } dst = jsn[prp].get<T>(); } while(0)
-#define TRYGET_S(jsn,dst,prp) TRYGET_T(dst,jsn,prp,std::string,is_string)
-#define TRYGET_SZ(jsn,dst,prp) TRYGET_T(dst,jsn,prp,hsapi::hsize,is_number_unsigned)
-#define TRYGET_PRIO(jsn,dst,prp) TRYGET_T(dst,jsn,prp,hsapi::hprio,is_number)
-#define TRYGET_FLAGS(jsn,dst,prp) TRYGET_T(dst,jsn,prp,hsapi::hflags,is_number_unsigned)
-#define TRYGET_ID(jsn,dst,prp) TRYGET_T(dst,jsn,prp,hsapi::hid,is_number_unsigned)
-#define TRYGET_VER(jsn,dst,prp) TRYGET_T(dst,jsn,prp,hsapi::hiver,is_number_unsigned)
-#define TRYGETOPT_T(jsn,dst,prp,T,chkr) do { if(jsn.contains(prp)) { if(!jsn[prp].chkr()) { elog("Prop: " prp); return APPERR_JSON_FAIL; } dst = jsn[prp].get<T>(); } } while(0)
-#define TRYGETOPT_S(dst,jsn,prp) TRYGETOPT_T(dst,jsn,prp,std::string,is_string)
-#define TRYCHECK_T(jsn,prp,chkr) do { if(!jsn[prp].chkr()) { elog("Prop: " prp); return APPERR_JSON_FAIL; } } while(0)
-#define TRYCHECK_S(jsn,prp) TRYCHECK_T(jsn,prp,is_string)
-#define TRYCHECK_A(jsn,prp) TRYCHECK_T(jsn,prp,is_array)
-#define TRYCHECK_OBJ(jsn,prp) TRYCHECK_T(jsn,prp,is_object)
-#define TRYCHECK_RES(jsn,prp) TRYCHECK_T(jsn,prp,is_number)
-#define CHECK_BOOL(jsn,prp) (jsn[prp].is_boolean())
-#define CHECKAPI(type) if((res = api_res_to_rc(j)) != OK) return res; TRYCHECK_##type(j, "value")
 #define OK 0
 
-using json = nlohmann::json;
-
-static u32 *g_socbuf = nullptr;
-static hsapi::Index g_index;
-#ifndef RELEASE
-static bool g_indexLoaded = false;
-#endif
-hsapi::Index *hsapi::get_index()
-{
-#ifndef RELEASE
-	/* since sometimes you just gotta shortcut your way to code that you want */
-	if(!g_indexLoaded) hsapi::fetch_index();
-#endif
-	return &g_index;
-}
-
-
-void hsapi::global_deinit()
-{
-	socExit();
-	if(g_socbuf != NULL)
-		free(g_socbuf);
-}
-
-bool hsapi::global_init()
-{
-	if(!(g_socbuf = (u32 *) memalign(SOC_ALIGN, SOC_BUFFERSIZE)))
-	{
-		elog("failed to allocate buffer of %X (aligned %X) for SOC", SOC_BUFFERSIZE, SOC_ALIGN);
-		return false;
-	}
-	if(R_FAILED(socInit(g_socbuf, SOC_BUFFERSIZE)))
-	{
-		elog("failed to initialize SOC");
-		return false;
-	}
-	ilog("%susing proxy", get_nsettings()->proxy_port ? "" : "not ");
-	return true;
-}
-
-static Result basereq(const std::string& url, std::string& data, HTTPC_RequestMethod reqmeth = HTTPC_METHOD_GET, const char *postdata = nullptr, u32 postdata_len = 0, bool disableTimeout = false)
-{
-	http::ResumableDownload downloader;
-	downloader.set_postdata(postdata, postdata_len);
-	downloader.set_target(url, reqmeth);
-	downloader.requires_authentication();
-	if(disableTimeout)
-		downloader.set_timeout(-1);
-
-	downloader.on_total_size_try_get([&]() -> Result {
-		if(downloader.maybe_total_size())
-			data.reserve(downloader.maybe_total_size());
-		return 0;
-	});
-
-	downloader.on_chunk([&](size_t chunk_size) -> Result {
-		data.append(downloader.data_buffer<char>(), chunk_size);
-		return 0;
-	});
-
-	Result res = downloader.execute_once();
-	vlog("Got API data:\n%s", data.c_str());
-	return res;
-}
-
-static Result api_res_to_rc(json& j)
-{
-	TRYCHECK_OBJ(j, "status");
-	TRYCHECK_RES(j["status"], "code");
-	Result code = j["status"]["code"].get<Result>();
-	switch(code)
-	{
-	case 0:
-		return OK;
-	/* perhaps expand this switch for common API errors
-	 * although they shouldn't happen */
-	default:
-		TRYCHECK_S(j, "error_message");
-		elog("API Error: %s (%08lX)", j["error_message"].get<std::string>().c_str(), code);
-		return APPERR_API_FAIL;
-	}
-}
-
-template <typename J>
-static Result basereq(const std::string& url, J& j, HTTPC_RequestMethod reqmeth = HTTPC_METHOD_GET, const char *postdata = nullptr, u32 postdata_len = 0, bool disableTimeout = false, const SourceLocation& sl = SourceLocation::Caller())
-{
-	ilog("Requesting JSON for %s", sl.function_name());
-	std::string data;
-	Result res = basereq(url, data, reqmeth, postdata, postdata_len, disableTimeout);
-	if(R_FAILED(res)) return res;
-	if(!data.size())
-	{
-		elog("Got null data");
-		return APPERR_JSON_FAIL;
-	}
-
-	j = J::parse(data, nullptr, false);
-	return j == J::value_t::discarded ? APPERR_JSON_FAIL : OK;
-}
-
-static Result serialize_subcategories(std::vector<hsapi::Subcategory>& rscats, const std::string& cat, json& scats)
-{
-	for(json::iterator scat = scats.begin(); scat != scats.end(); ++scat)
-	{
-		json& jscat = scat.value();
-
-		rscats.emplace_back();
-		hsapi::Subcategory& s = rscats.back();
-
-		TRYGET_S(jscat, s.disp, "display_name");
-		TRYGET_S(jscat, s.desc, "description");
-		s.name = scat.key();
-		s.cat = cat;
-
-		TRYGET_SZ(jscat, s.titles, "total_content_count");
-		TRYGET_SZ(jscat, s.size, "size");
-	}
-	return OK;
-}
-
-static Result serialize_categories(std::vector<hsapi::Category>& rcats, json& cats)
-{
-	for(json::iterator cat = cats.begin(); cat != cats.end(); ++cat)
-	{
-		json& jcat = cat.value();
-
-		rcats.emplace_back();
-		hsapi::Category& c = rcats.back();
-
-		TRYGET_SZ(jcat, c.titles, "total_content_count");
-		TRYGET_S(jcat, c.disp, "display_name");
-		TRYGET_S(jcat, c.desc, "description");
-		TRYGET_PRIO(jcat, c.prio, "priority");
-		TRYGET_SZ(jcat, c.size, "size");
-		c.name = cat.key();
-
-		TRYCHECK_OBJ(jcat, "subcategories");
-		if(serialize_subcategories(c.subcategories, c.name, jcat["subcategories"]) != OK)
-			return APPERR_JSON_FAIL;
-	}
-	return OK;
-}
-
-static Result serialize_title(hsapi::Title& t, json& jt)
-{
-	TRYGET_SZ(jt, t.size, "size");
-	TRYGET_SZ(jt, t.dlCount, "download_count");
-	TRYGET_ID(jt, t.id, "id");
-	TRYCHECK_S(jt, "title_id");
-	t.tid = ctr::str_to_tid(jt["title_id"].get<std::string>());
-	TRYGET_S(jt, t.cat, "category");
-	TRYGET_S(jt, t.subcat, "subcategory");
-	TRYGET_S(jt, t.name, "name");
-	TRYGET_FLAGS(jt, t.flags, "flags");
-	TRYGETOPT_S(jt, t.alt, "alternative_name");
-
+	/* TODO: This */
+#if 0
 	const char *vc_type;
 	switch((t.flags >> hsapi::VCType::shift) & hsapi::VCType::mask)
 	{
@@ -233,47 +63,104 @@ static Result serialize_title(hsapi::Title& t, json& jt)
 		if(t.alt.size()) t.alt = vc_type + t.alt;
 		t.name = vc_type + t.name;
 	}
-	return OK;
+#endif
+
+/* {{{1 de/initialization */
+
+static u32 *g_socbuf = nullptr;
+
+bool hsapi::global_init()
+{
+	Result res;
+	if(!(g_socbuf = (u32 *) memalign(SOC_ALIGN, SOC_BUFFERSIZE)))
+	{
+		elog("failed to allocate buffer of %X (aligned %X) for SOC", SOC_BUFFERSIZE, SOC_ALIGN);
+		return false;
+	}
+	if(R_FAILED((res = socInit(g_socbuf, SOC_BUFFERSIZE))))
+	{
+		free(g_socbuf);
+		g_socbuf = nullptr;
+		elog("failed to initialize SOC: %08lX", res);
+		return false;
+	}
+	ilog("%susing proxy for API", get_nsettings()->proxy_port ? "" : "not ");
+	return true;
 }
 
-static Result serialize_titles(std::vector<hsapi::Title>& rtitles, json& j)
+void hsapi::global_deinit()
 {
-	for(json::iterator it = j.begin(); it != j.end(); ++it)
-		if(CHECK_BOOL(it.value(), "is_listed") && it.value()["is_listed"].get<bool>())
-		{
-			rtitles.emplace_back();
-			if(serialize_title(rtitles.back(), it.value()) != OK)
-				return APPERR_JSON_FAIL;
-		}
-	return OK;
+	if(g_socbuf != nullptr)
+	{
+		socExit();
+		free(g_socbuf);
+		g_socbuf = nullptr;
+	}
 }
 
-static Result serialize_full_title(hsapi::FullTitle& ret, json& j)
+/* 1}}} */
+
+/* {{{1 Network primitives */
+
+static Result basereq(const std::string& url, std::string& data, HTTPC_RequestMethod reqmeth = HTTPC_METHOD_GET, const char *postdata = nullptr, u32 postdata_len = 0)
 {
-	if(!j["is_listed"]) return APPERR_TITLE_UNLISTED;
-	if(serialize_title(ret, j) != OK)
-		return APPERR_JSON_FAIL;
-	// now we serialize for the FullTitle exclusive fields
-	TRYGET_S(j, ret.prod, "product_code");
-	TRYGET_VER(j, ret.version, "version");
-	TRYGETOPT_S(j, ret.seed, "seed"); // not all titles use a seed
-	return OK;
+	http::ResumableDownload downloader;
+	downloader.set_postdata(postdata, postdata_len);
+	downloader.set_target(url, reqmeth);
+	downloader.requires_authentication();
+
+	downloader.on_total_size_try_get([&]() -> Result {
+		if(downloader.maybe_total_size())
+			data.reserve(downloader.maybe_total_size());
+		return 0;
+	});
+
+	downloader.on_chunk([&](size_t chunk_size) -> Result {
+		data.append(downloader.data_buffer<char>(), chunk_size);
+		return 0;
+	});
+
+	Result res = downloader.execute_once();
+	vlog("Got API data:\n%s", data.c_str());
+	return res;
 }
 
-static Result serialize_full_titles(std::vector<hsapi::FullTitle>& rtitles, json& j)
+static Result handle_nb_result(nb::Result& nres)
 {
-	for(json::iterator it = j.begin(); it != j.end(); ++it)
-		if(CHECK_BOOL(it.value(), "is_listed") && it.value()["is_listed"].get<bool>())
-		{
-			rtitles.emplace_back();
-			if(serialize_full_title(rtitles.back(), it.value()) != OK)
-				return APPERR_JSON_FAIL;
-		}
-	return OK;
+	elog("Failed with Result of: %s (%u)", nres.message, nres.code);
+	return APPERR_API_FAIL;
+}
+
+template <typename T, nb::StatusCode (*parse_func)(T&, u8 *, size_t, u32 *) = nb::parse_full<T>>
+static Result nbreq(const std::string& url, T& obj, HTTPC_RequestMethod reqm = HTTPC_METHOD_GET, const char *postdata = nullptr, u32 size = 0)
+{
+	std::string data;
+	Result res = basereq(url, data, reqm, postdata, size);
+	if(R_FAILED(res)) return res;
+
+	nb::StatusCode sc = parse_func(obj, (u8 *) data.c_str(), data.size(), nullptr);
+	if(sc == nb::StatusCode::MAGIC_MISMATCH)
+	{
+		/* We may have an nb::Result */
+		nb::Result nres;
+		sc = nb::parse_full<nb::Result>(nres, (u8 *) data.c_str(), data.size());
+		if(sc == nb::StatusCode::SUCCESS)
+			res = handle_nb_result(nres);
+	}
+	if(sc != nb::StatusCode::SUCCESS)
+		res = APPERR_INVALID_NB;
+
+	return res;
+}
+
+template <typename T>
+static Result nbreqa(const std::string& url, std::vector<T>& obj, HTTPC_RequestMethod reqm = HTTPC_METHOD_GET)
+{
+	return nbreq<std::vector<T>, nb::parse_array<T>>(url, obj, reqm);
 }
 
 // https://en.wikipedia.org/wiki/Percent-encoding
-static std::string url_encode(const std::string& str)
+static std::string percent_encode(const std::string& str)
 {
 	std::string ret;
 	ret.reserve(str.size() * 3);
@@ -286,8 +173,6 @@ static std::string url_encode(const std::string& str)
 			ret += str[i];
 		else
 		{
-			// C++ can be retarded at times
-			// Why is there no std::hex(uchar) function?
 			snprintf(hex, 4, "%%%02X", str[i]);
 			ret += hex;
 		}
@@ -296,7 +181,7 @@ static std::string url_encode(const std::string& str)
 	return ret;
 }
 
-static std::string gen_url(const std::string& base, const std::unordered_map<std::string, std::string>& params)
+static std::string make_query_string_url(const std::string& base, const std::unordered_map<std::string, std::string>& params)
 {
 	std::string ret = base;
 	bool first_set = false;
@@ -304,10 +189,10 @@ static std::string gen_url(const std::string& base, const std::unordered_map<std
 	for(std::unordered_map<std::string, std::string>::const_iterator i = params.begin(); i != params.end(); ++i)
 	{
 		if(first_set)
-			ret += "&" + i->first + "=" + url_encode(i->second);
+			ret += "&" + i->first + "=" + percent_encode(i->second);
 		else
 		{
-			ret += "?" + i->first + "=" + url_encode(i->second);
+			ret += "?" + i->first + "=" + percent_encode(i->second);
 			first_set = true;
 		}
 	}
@@ -315,167 +200,169 @@ static std::string gen_url(const std::string& base, const std::unordered_map<std
 	return ret;
 }
 
-hsapi::Subcategory *hsapi::Category::find(const std::string& name)
-{
-	for(size_t i = 0; i < this->subcategories.size(); ++i)
-	{
-		if(this->subcategories[i].name == name || this->subcategories[i].disp == name)
-			return &this->subcategories[i];
-	}
-	return nullptr;
-}
+/* 1}}} */
 
-hsapi::Category *hsapi::Index::find(const std::string& name)
+/* {{{1 Index ops */
+
+namespace hsapi { using Index = nb::Index; }
+
+static hsapi::Index g_index;
+#if !RELEASE
+static bool g_indexloaded = false;
+#endif
+
+static hsapi::Index& hindex()
 {
-	for(size_t i = 0; i < this->categories.size(); ++i)
-	{
-		if(this->categories[i].name == name || this->categories[i].disp == name)
-			return &this->categories[i];
-	}
-	return nullptr;
+#if !RELEASE
+	if(!g_indexloaded)
+		panic_assert(R_SUCCEEDED(hsapi::fetch_index()), "failed to fetch unloaded index (debug)");
+#endif
+	return g_index;
 }
 
 Result hsapi::fetch_index()
 {
-#ifndef RELEASE
-	if(g_indexLoaded) return OK;
+	Result res = nbreq<hsapi::Index>(HS_NB_LOC "/title-index", g_index);
+#if !RELEASE
+	if(R_SUCCEEDED(res))
+		g_indexloaded = true;
 #endif
-
-	json j;
-	Result res;
-	if(R_FAILED(res = basereq<json>(HS_BASE_LOC "/title-index", j)))
-		return res;
-	CHECKAPI(OBJ);
-	j = j["value"];
-
-	TRYGET_SZ(j, g_index.titles, "total_content_count");
-	TRYGET_SZ(j, g_index.size, "size");
-
-	TRYCHECK_OBJ(j, "entries");
-	if(serialize_categories(g_index.categories, j["entries"]) != OK)
-		return APPERR_JSON_FAIL;
-	std::sort(g_index.categories.begin(), g_index.categories.end());
-
-#ifndef RELEASE
-	g_indexLoaded = true;
-#endif
-
-	return OK;
+	return res;
 }
 
-Result hsapi::titles_in(std::vector<hsapi::Title>& ret, const std::string& cat, const std::string& scat)
+hsapi::IndexSubcategory& hsapi::subcategory(hcid cid, hcid sid)
 {
-	json j;
-	Result res;
-	if(R_FAILED(res = basereq<json>(HS_BASE_LOC "/title/category/" + cat + "/" + scat, j)))
-		return res;
-	CHECKAPI(A);
-
-	return serialize_titles(ret, j["value"]);
+	hsapi::IndexCategory& cat = category(cid);
+	auto it = cat.subcategories.find(sid);
+	if(it == cat.subcategories.end())
+		panic("invalid subcategory id");
+	return it->second;
 }
 
-Result hsapi::title_meta(hsapi::FullTitle& ret, hsapi::hid id)
+hsapi::IndexCategory& hsapi::category(hcid cid)
 {
-	json j;
-	Result res;
-	if(R_FAILED(res = basereq<json>(HS_BASE_LOC "/title/" + std::to_string(id), j)))
-		return res;
-	CHECKAPI(OBJ);
-
-	return serialize_full_title(ret, j["value"]);
+	hsapi::Index& dx = hindex();
+	auto it = dx.categories.find(cid);
+	if(it == dx.categories.end())
+		panic("invalid category id");
+	return it->second;
 }
 
-Result hsapi::get_download_link(std::string& ret, const hsapi::Title& meta)
+void hsapi::sorted_categories(std::vector<hsapi::Category>& categories)
 {
-	json j;
-	Result res;
-	if(R_FAILED(res = basereq<json>(HS_CDN_BASE "/content/" + std::to_string(meta.id) + "/request", j)))
-		return res;
-	CHECKAPI(OBJ);
-
-	TRYCHECK_S(j["value"], "token");
-	ret = HS_CDN_BASE "/content/" + std::to_string(meta.id) + "?token=" + j["value"]["token"].get<std::string>();
-	return OK;
+	hsapi::Index& dx = hindex();
+	categories.reserve(dx.categories.size());
+	for(auto it = dx.categories.begin(); it != dx.categories.end(); ++it)
+		categories.push_back(it->second);
+	std::sort(categories.begin(), categories.end(), [](const hsapi::Category& lhs, const hsapi::Category& rhs) -> bool {
+		return lhs.prio < rhs.prio;
+	});
 }
 
-Result hsapi::search(std::vector<hsapi::Title>& ret, const std::unordered_map<std::string, std::string>& params)
+hsapi::CategoryMap& hsapi::categories() { return hindex().categories; }
+hsapi::IndexMeta& hsapi::imeta() { return hindex().meta; }
+
+/* 1}}} */
+
+/* {{{1 Title API */
+
+Result hsapi::titles_in(std::vector<hsapi::PartialTitle>& ret, const hsapi::IndexCategory& cat, const hsapi::IndexSubcategory& scat)
 {
-	json j;
-	Result res;
-	if(R_FAILED(res = basereq<json>(gen_url(HS_BASE_LOC "/title/search", params), j)))
-		return res;
-	CHECKAPI(A);
-
-	return serialize_titles(ret, j["value"]);
+	ilog("Listing titles in subcategory");
+	return nbreqa<hsapi::PartialTitle>(HS_NB_LOC "/title/category/" + cat.name + "/" + scat.name, ret);
 }
 
-Result hsapi::random(hsapi::FullTitle& ret)
+Result hsapi::title_meta(hsapi::Title& ret, hsapi::hid id)
 {
-	json j;
-	Result res;
-	if(R_FAILED(res = basereq<json>(HS_BASE_LOC "/title/random", j)))
-		return res;
-	CHECKAPI(OBJ);
-
-	return serialize_full_title(ret, j["value"]);
+	ilog("Transforming PartialTitle into Title");
+	return nbreq<hsapi::Title>(HS_NB_LOC "/title/" + std::to_string(id), ret);
 }
+
+Result hsapi::search(std::vector<hsapi::PartialTitle>& ret, const std::unordered_map<std::string, std::string>& params)
+{
+	ilog("Performing search action");
+	return nbreqa<hsapi::PartialTitle>(make_query_string_url(HS_NB_LOC "/title/search", params), ret);
+}
+
+Result hsapi::random(hsapi::Title& ret)
+{
+	ilog("Getting random title");
+	return nbreq<hsapi::Title>(HS_NB_LOC "/title/random", ret);
+}
+
+Result hsapi::batch_related(std::vector<hsapi::Title>& ret, const std::vector<hsapi::htid>& tids)
+{
+	ilog("Doing batch related query");
+	if(tids.size() == 0)
+		return OK;
+
+	std::string url = HS_NB_LOC "/title/related/batch?title_ids=" + ctr::tid_to_str(tids[0]);
+	url.reserve((tids.size() - 1) * (16 + 1));
+	for(size_t i = 1; i < tids.size(); ++i)
+		url += ctr::tid_to_str(tids[i]);
+
+	return nbreqa<hsapi::Title>(url, ret);
+}
+
+Result hsapi::get_by_title_id(std::vector<hsapi::Title>& ret, const std::string& title_id)
+{
+	ilog("Getting hshop title by title id");
+	return nbreqa<hsapi::Title>(HS_NB_LOC "/title/id/" + title_id, ret);
+}
+
+/* 1}}} */
+
+/* {{{1 Misc. API */
 
 Result hsapi::upload_log(const char *contents, u32 size, std::string& logid)
 {
-	json j;
-	Result res;
-	if(R_FAILED(res = basereq<json>(HS_SITE_LOC "/log", j, HTTPC_METHOD_POST, contents, size)))
-		return res;
-	CHECKAPI(OBJ);
-	TRYCHECK_S(j["value"], "id");
-	logid = j["value"]["id"].get<std::string>();
+	ilog("Uploading log");
+	nb::ThsLogResult logres;
+	Result res = nbreq<nb::ThsLogResult>(HS_SITE_LOC "/loc", logres, HTTPC_METHOD_POST, contents, size);
+	if(R_FAILED(res)) return res;
+	char hex[9];
+	snprintf(hex, 9, "%08X", logres.id);
+	logid = hex;
 	return OK;
-}
-
-Result hsapi::batch_related(std::vector<hsapi::FullTitle>& ret, const std::vector<hsapi::htid>& tids)
-{
-	if(tids.size() == 0) return OK;
-
-	std::string url = HS_BASE_LOC "/title/related/batch?title_ids=" + ctr::tid_to_str(tids[0]);
-	for(size_t i = 1; i < tids.size(); ++i) url += "&title_ids=" + ctr::tid_to_str(tids[i]);
-
-	json j;
-	Result res = OK;
-	if(R_FAILED(res = basereq<json>(url, j)))
-		return res;
-	CHECKAPI(A);
-	return serialize_full_titles(ret, j["value"]);
 }
 
 Result hsapi::get_latest_version_string(std::string& ret)
 {
-	Result res = OK;
 	ilog("Getting latest version");
-	if(R_FAILED(res = basereq(HS_UPDATE_BASE "/version", ret)))
-		return res;
+	Result res = basereq(HS_UPDATE_BASE "/version", ret);
+	if(R_FAILED(res)) return res;
 	trim(ret, " \t\n");
 	return OK;
-}
-
-Result hsapi::get_by_title_id(std::vector<Title>& ret, const std::string& title_id)
-{
-	json j;
-	Result res = OK;
-	if(R_FAILED(res = basereq<json>(HS_BASE_LOC "/title/id/" + title_id, j)))
-		return res;
-	CHECKAPI(A);
-
-	return serialize_titles(ret, j["value"]);
 }
 
 Result hsapi::get_theme_preview_png(std::string& ret, hsapi::hid id)
 {
 	ilog("Getting theme preview");
-	Result res = OK;
-	if(R_FAILED(res = basereq(HS_BASE_LOC "/title/" + std::to_string(id) + "/theme-preview", ret)))
-		return res;
+	Result res = basereq(HS_NB_LOC "/title/" + std::to_string(id) + "/theme-preview", ret);
+	if(R_FAILED(res)) return res;
+	nb::Result nres;
+	if(nb::parse_full<nb::Result>(nres, (u8 *) ret.c_str(), ret.size()) == nb::StatusCode::SUCCESS)
+		return handle_nb_result(nres);
 	return OK;
 }
+
+/* 1}}} */
+
+/* {{{1 DLApi */
+
+Result hsapi::get_download_link(std::string& ret, const Title& meta)
+{
+	nb::DLToken tok;
+	Result res = nbreq<nb::DLToken>(HS_CDN_BASE "/nbcontent/" + std::to_string(meta.id) + "/request", tok);
+	if(R_FAILED(res)) return res;
+
+	ret = HS_CDN_BASE "/content" + std::to_string(meta.id) + "?token=" + tok.token;
+	return OK;
+}
+
+/* 1}}} */
+
+/* {{{1 Misc. */
 
 std::string hsapi::update_location(const std::string& ver)
 {
@@ -499,4 +386,13 @@ std::string hsapi::parse_vstring(hsapi::hiver version)
 		+ std::to_string(version >> 4  & 0x3F) + "."
 		+ std::to_string(version       & 0xF );
 }
+
+std::string hsapi::format_category_and_subcategory(hsapi::hcid cid, hsapi::hcid sid)
+{
+	hsapi::Category& cat = hsapi::category(cid);
+	hsapi::Subcategory& scat = hsapi::subcategory(cid, sid);
+	return cat.disp + " -> " + scat.disp;
+}
+
+/* 1}}} */
 

@@ -70,12 +70,12 @@ sub configure {
 	my $devid     = getconf "device_id";
 	my $dserv     = getconf "debug_server", "HS_DEBUG_SERVER";
 	my $upbase    = getconf "update_base", "HS_UPDATE_BASE";
-	my $baseloc   = getconf "api_base", "HS_API_BASE";
 	my $cdnbase   = getconf "cdn_base", "HS_CDN_BASE";
 	my $siteloc   = getconf "website", "HS_WEBSITE";
+	my $nbloc     = getconf "nb_base", "HS_NB_BASE";
 
 	die "Must provide hShop server URLs, see the README"
-		unless $upbase && ($dserv || ($baseloc && $cdnbase && $siteloc));
+		unless $upbase && ($dserv || ($cdnbase && $siteloc && $nbloc));
 
 	my $cflags = "";
 	$cflags .= " -DFULL_LOG=1" if $full_log;
@@ -84,7 +84,7 @@ sub configure {
 	$cflags .= " -DDEVICE_ID=$devid" if $devid;
 	$cflags .= " -DHS_DEBUG_SERVER=\\\"$dserv\\\"" if $dserv;
 	$cflags .= " -DHS_UPDATE_BASE=\\\"$upbase\\\"" if $upbase;
-	$cflags .= " -DHS_BASE_LOC=\\\"$baseloc\\\"" if $baseloc;
+	$cflags .= " -DHS_NB_BASE=\\\"$upbase\\\"" if $nbloc;
 	$cflags .= " -DHS_CDN_BASE=\\\"$cdnbase\\\"" if $cdnbase;
 	$cflags .= " -DHS_SITE_LOC=\\\"$siteloc\\\"" if $siteloc;
 
@@ -319,7 +319,7 @@ ifeq (\$(VERSION),)
 	VERSION := 0
 endif
 
-GRAPHICS     := \$(addprefix $graphics_output/,\$(T3XFILES))
+GRAPHICS     := \$(addprefix $graphics_output/,\$(T3XFILES)) \$(foreach f,\$(T3XFILES),$data_build/\$(f:.t3x=.h))
 DATA_OBJECTS := \$(addprefix $data_build/,\$(DATA_OBJECTS))
 OBJECT_FILES := \$(addprefix \$(BUILD)/,\$(OBJECT_FILES))
 
@@ -382,7 +382,7 @@ $binary_name.elf: \$(PREDEPS) \$(GRAPHICS) \$(DATA_OBJECTS) \$(OBJECT_FILES)
 	\$(SILENT)mkdir -p \$(dir \$@)
 	\$(SILENT)$cc -c \$< -o \$@ \$(CFLAGS) $depflags
 
-$graphics_output/%.t3x: $graphics_directory/%.t3s
+$graphics_output/%.t3x $data_build/%.h: $graphics_directory/%.t3s
 	\@echo \$(notdir \$<)
 	\$(SILENT)$tex3ds -i \$< -H $data_build/\$*.h -o $graphics_output/\$*.t3x
 

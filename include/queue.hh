@@ -22,10 +22,10 @@
 
 #include "hsapi.hh"
 
-std::vector<hsapi::FullTitle>& queue_get();
+std::vector<hsapi::Title>& queue_get();
 
 void queue_add(hsapi::hid id, bool disp = true);
-void queue_add(const hsapi::FullTitle& meta);
+void queue_add(const hsapi::Title& meta);
 void queue_process(size_t index);
 void queue_remove(size_t index);
 void queue_add(hsapi::hid id);

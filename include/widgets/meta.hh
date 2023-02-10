@@ -68,8 +68,10 @@ namespace ui
 	class TitleMeta : public ui::BaseWidget
 	{ UI_WIDGET("TitleMeta")
 	public:
+		void setup(const hsapi::PartialTitle& meta);
 		void setup(const hsapi::Title& meta);
 
+		void set_title(const hsapi::PartialTitle& meta);
 		void set_title(const hsapi::Title& meta);
 
 		float get_x() override;
@@ -82,6 +84,9 @@ namespace ui
 
 	private:
 		ui::RenderQueue queue;
+
+		template <typename T>
+		void setup_with_title(const T&);
 
 
 	};

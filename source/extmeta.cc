@@ -19,6 +19,7 @@
 #include <widgets/meta.hh>
 #include <ui/base.hh>
 
+#include "installgui.hh" /* THEMES_CATEGORY */
 #include "image_ldr.hh"
 #include "extmeta.hh"
 #include "thread.hh"
@@ -36,7 +37,8 @@
 
 enum class extmeta_return { yes, no, none };
 
-static void show_preview(const hsapi::Title& title)
+template <typename TTitle = hsapi::PartialTitle>
+static void show_preview(const TTitle& title)
 {
 	std::string png_data;
 	if(R_FAILED(hsapi::call(hsapi::get_theme_preview_png, png_data, (hsapi::hid) title.id)))
@@ -82,7 +84,8 @@ static bool to_bool(extmeta_return r)
 	return r == extmeta_return::yes;
 }
 
-static extmeta_return extmeta(ui::RenderQueue& queue, const hsapi::Title& base, const std::string& version_s, const std::string& prodcode_s)
+template <typename TTitle = hsapi::PartialTitle>
+static extmeta_return extmeta(ui::RenderQueue& queue, const TTitle& base, const std::string& version_s, const std::string& prodcode_s)
 {
 	extmeta_return ret = extmeta_return::none;
 	ui::Text *press_to_install;
@@ -142,7 +145,7 @@ static extmeta_return extmeta(ui::RenderQueue& queue, const hsapi::Title& base, 
 	/* category -> subcategory */
 	// on the bottom screen there are cases where this overflows,
 	// but i don't think that can happen on the top screen since it's a bit bigger
-	ui::builder<ui::Text>(ui::Screen::top, hsapi::get_index()->find(base.cat)->disp + " -> " + hsapi::get_index()->find(base.cat)->find(base.subcat)->disp)
+	ui::builder<ui::Text>(ui::Screen::top, hsapi::format_category_and_subcategory(base.cat, base.subcat))
 		.x(9.0f)
 		.under(queue.back(), 1.0f)
 		.add_to(queue);
@@ -159,7 +162,7 @@ static extmeta_return extmeta(ui::RenderQueue& queue, const hsapi::Title& base, 
 		.add_to(queue);
 
 	/* only applies to themes */
-	if(base.cat == "themes")
+	if(hsapi::category(base.cat).name == THEMES_CATEGORY)
 	{
 		/* Button hint preview theme */
 		ui::builder<ui::Text>(ui::Screen::bottom, STRING(hint_preview_theme))
@@ -247,13 +250,13 @@ static extmeta_return extmeta(ui::RenderQueue& queue, const hsapi::Title& base, 
 	return ret;
 }
 
-static extmeta_return extmeta(const hsapi::FullTitle& title)
+static extmeta_return extmeta(const hsapi::Title& title)
 {
 	ui::RenderQueue queue;
 	return extmeta(queue, title, hsapi::parse_vstring(title.version) + " (" + std::to_string(title.version) + ")", title.prod);
 }
 
-bool show_extmeta_lazy(const hsapi::Title& base, hsapi::FullTitle *full)
+bool show_extmeta_lazy(const hsapi::PartialTitle& base, hsapi::Title *full)
 {
 	std::string desc = set_desc(STRING(more_about_content));
 	ui::RenderQueue queue;
@@ -261,9 +264,9 @@ bool show_extmeta_lazy(const hsapi::Title& base, hsapi::FullTitle *full)
 
 	std::string version, prodcode, alt;
 
-	ctr::thread<std::string&, std::string&, std::string&, ui::RenderQueue&, hsapi::FullTitle *> th([&base]
-			(std::string& version, std::string& prodcode, std::string& alt, ui::RenderQueue& queue, hsapi::FullTitle *fullptr) -> void {
-		hsapi::FullTitle full;
+	ctr::thread<std::string&, std::string&, std::string&, ui::RenderQueue&, hsapi::Title *> th([&base]
+			(std::string& version, std::string& prodcode, std::string& alt, ui::RenderQueue& queue, hsapi::Title *fullptr) -> void {
+		hsapi::Title full;
 		if(R_FAILED(hsapi::title_meta(full, base.id)))
 			return;
 		if(fullptr != nullptr)
@@ -293,10 +296,10 @@ bool show_extmeta_lazy(const hsapi::Title& base, hsapi::FullTitle *full)
 	return ret;
 }
 
-bool show_extmeta_lazy(std::vector<hsapi::Title>& titles, hsapi::hid id, hsapi::FullTitle *full)
+bool show_extmeta_lazy(std::vector<hsapi::PartialTitle>& titles, hsapi::hid id, hsapi::Title *full)
 {
-	std::vector<hsapi::Title>::iterator it =
-		std::find_if(titles.begin(), titles.end(), [id](const hsapi::Title& t) -> bool {
+	std::vector<hsapi::PartialTitle>::iterator it =
+		std::find_if(titles.begin(), titles.end(), [id](const hsapi::PartialTitle& t) -> bool {
 			return t.id == id;
 		});
 
@@ -304,7 +307,7 @@ bool show_extmeta_lazy(std::vector<hsapi::Title>& titles, hsapi::hid id, hsapi::
 	return show_extmeta_lazy(*it, full);
 }
 
-bool show_extmeta(const hsapi::FullTitle& title)
+bool show_extmeta(const hsapi::Title& title)
 {
 	std::string desc = set_desc(STRING(more_about_content));
 	bool ret = to_bool(extmeta(title));

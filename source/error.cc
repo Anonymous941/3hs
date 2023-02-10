@@ -153,6 +153,7 @@ static const std::unordered_map<Result, std::unordered_map<Result, const char *>
 			{ 13, "Out of memory"                                 },
 			{ 14, "Incompatible font"                             },
 			{ 15, "Maximum HTTP redirects followed"               },
+			{ 16, "Failed to parse NBAPI data"                    },
 		}
 	},
 });

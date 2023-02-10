@@ -19,7 +19,6 @@
 
 #include <3ds/types.h>
 #include <string.h>
-
 #include <vector>
 
 namespace nb
@@ -53,14 +52,14 @@ namespace nb
 		INPUT_DATA_TOO_SHORT = 3,
 	};
 
+	/* this class is actually unused, thus it is empty */
 	class INbDeserializable
 	{
-	public:
-		virtual nb::StatusCode deserialize(u8 *header, u32 header_size, u8 *blob, u32 blob_size) = 0;
+		/* virtual nb::StatusCode deserialize(u8 *header, u32 header_size, u8 *blob, u32 blob_size) = 0; */
 	};
 
 	template <typename T>
-	nb::StatusCode parse_full(T& out, u8 *data, size_t size, u32 *out_size = nullptr)
+	static nb::StatusCode parse_full(T& out, u8 *data, size_t size, u32 *out_size = nullptr)
 	{
 		if (!data || !size)
 			return nb::StatusCode::NO_INPUT_DATA;
@@ -85,7 +84,7 @@ namespace nb
 	}
 
 	template <typename T>
-	nb::StatusCode parse_array(std::vector<T>& out, u8 *data, size_t size, u32 *out_size = nullptr)
+	static nb::StatusCode parse_array(std::vector<T>& out, u8 *data, size_t size, u32 *out_size = nullptr)
 	{
 		if (!data || !size)
 			return nb::StatusCode::NO_INPUT_DATA;

@@ -19,8 +19,9 @@
 #include <stdlib.h>
 #include "log.hh"
 
-/* broken currently, will probably be fixed in a later version */
-#define CWAV_ENABLE_ADPCM 0
+/* -- broken currently, will probably be fixed in a later version
+ * works now, define still here due to lazyness */
+#define CWAV_ENABLE_ADPCM 1
 
 /* Reference: https://3dbrew.org/wiki/BCWAV */
 
@@ -363,9 +364,6 @@ static unsigned dsp_to_samples(unsigned bytes)
 
 size_t cwav_read(struct cwav *cw, int channel, void *samples, unsigned bytesize)
 {
-	/* TODO: Proper read of IMA_ADPCM and DSP_ADPCM
-	 *  https://wiki.multimedia.cx/index.php/IMA_ADPCM
-	 *  https://wiki.multimedia.cx/index.php/PCM */
 	size_t samples_left = cw->endFrame - cw->frameCounters[channel];
 	size_t ret = 0;
 

@@ -69,17 +69,17 @@ Result show_find_missing(hsapi::htid tid, size_t& amount_found)
 			}
 		}
 
-		std::vector<hsapi::FullTitle> potentialInstalls;
-		ret = hsapi::scall<std::vector<hsapi::FullTitle>&, const std::vector<hsapi::htid>&>(hsapi::batch_related, potentialInstalls, installedGames);
+		std::vector<hsapi::Title> potentialInstalls;
+		ret = hsapi::scall<std::vector<hsapi::Title>&, const std::vector<hsapi::htid>&>(hsapi::batch_related, potentialInstalls, installedGames);
 		if(R_FAILED(ret)) return;
 
-		std::vector<hsapi::FullTitle> newInstalls;
-		std::copy_if(potentialInstalls.begin(), potentialInstalls.end(), std::back_inserter(newInstalls), [installed](const hsapi::FullTitle& title) -> bool {
+		std::vector<hsapi::Title> newInstalls;
+		std::copy_if(potentialInstalls.begin(), potentialInstalls.end(), std::back_inserter(newInstalls), [installed](const hsapi::Title& title) -> bool {
 			/* don't import demo's */
 			if(ctr::get_tid_cat(title.tid) == 0x2)
 				return false;
 			/* already in queue */
-			if(std::find(queue_get().begin(), queue_get().end(), title) != queue_get().end())
+			if(std::find_if(queue_get().begin(), queue_get().end(), [&title](const hsapi::Title& it) -> bool { return title.id == it.id; }) != queue_get().end())
 				return false;
 			/* not installed */
 			if(std::find(installed.begin(), installed.end(), title.tid) == installed.end())
@@ -91,7 +91,7 @@ Result show_find_missing(hsapi::htid tid, size_t& amount_found)
 			return title.version > te.version;
 		});
 
-		for(const hsapi::FullTitle& title : newInstalls)
+		for(const hsapi::Title& title : newInstalls)
 			queue_add(title);
 		amount_found = newInstalls.size();
 	});

@@ -41,7 +41,7 @@ Variables used in the building process:
  - device_id,DEVICE_ID=device-id-int
  - debug_server,HS_DEBUG_SERVER="debug-server"
  - update_base,HS_UPDATE_BASE="update-url"
- - api_base,HS_API_BASE="api-url"
+ - nb_base,HS_NB_BASE="nbapi-url"
  - cdn_base,HS_CDN_BASE="cdn-url"
  - site_url,HS_SITE_URL="hsite-url"
 

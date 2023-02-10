@@ -36,19 +36,21 @@
 #include "ctr.hh"
 #include "log.hh"
 
-static std::vector<hsapi::FullTitle> g_queue;
-std::vector<hsapi::FullTitle>& queue_get() { return g_queue; }
+static std::vector<hsapi::Title> g_queue;
+std::vector<hsapi::Title>& queue_get() { return g_queue; }
 
-void queue_add(const hsapi::FullTitle& meta)
+void queue_add(const hsapi::Title& meta)
 {
-	if (std::find(g_queue.begin(), g_queue.end(), meta) != g_queue.end()) return;
+	if(std::find_if(g_queue.begin(), g_queue.end(), [&meta](const hsapi::Title& title) -> bool { return title.id == meta.id; }) != g_queue.end())
+		return;
 	g_queue.push_back(meta);
 }
 
 void queue_add(hsapi::hid id, bool disp)
 {
-	if (std::find(g_queue.begin(), g_queue.end(), id) != g_queue.end()) return;
-	hsapi::FullTitle meta;
+	if(std::find_if(g_queue.begin(), g_queue.end(), [id](const hsapi::Title& title) -> bool { return title.id == id; }) != g_queue.end())
+		return;
+	hsapi::Title meta;
 	Result res = disp ? hsapi::call(hsapi::title_meta, meta, std::move(id))
 		: hsapi::scall(hsapi::title_meta, meta, std::move(id));
 	if(R_FAILED(res)) return;
@@ -80,8 +82,8 @@ void queue_process_all()
 
 	struct errvec {
 		Result res;
-		hsapi::FullTitle *meta;
-		bool operator == (const hsapi::FullTitle& other)
+		hsapi::Title *meta;
+		bool operator == (const hsapi::Title& other)
 		{ return other.id == this->meta->id; }
 	};
 	std::vector<errvec> errs;
@@ -109,7 +111,7 @@ void queue_process_all()
 		{
 			if(luma::set_locale(g_queue[i].tid, false))
 				procflag |= SET_PATCH;
-			if(g_queue[i].cat == THEMES_CATEGORY)
+			if(hsapi::category(g_queue[i].cat).name == THEMES_CATEGORY)
 				procflag |= WARN_THEME;
 			else if(g_queue[i].flags & hsapi::TitleFlag::installer)
 				procflag |= WARN_FILE;
@@ -166,7 +168,7 @@ static void queue_is_empty()
 
 void show_queue()
 {
-	using list_t = ui::List<hsapi::FullTitle>;
+	using list_t = ui::List<hsapi::Title>;
 	bool focus = set_focus(true);
 
 	// Queue is empty :craig:
@@ -185,7 +187,7 @@ void show_queue()
 		.add_to(&meta, queue);
 
 	ui::builder<list_t>(ui::Screen::top, &g_queue)
-		.connect(list_t::to_string, [](const hsapi::FullTitle& meta) -> std::string { return meta.name; })
+		.connect(list_t::to_string, [](const hsapi::Title& meta) -> std::string { return meta.name; })
 		.connect(list_t::select, [meta](list_t *self, size_t i, u32 kDown) -> bool {
 			/* why is the cast necessairy? */
 			((void) i);

@@ -156,7 +156,7 @@ static void handle_add_queue(int clientfd, iTransactionHeader header)
 	{
 		hsapi::hid id = ntohll(((const hsapi::hid *) body.data())[i]);
 
-		hsapi::FullTitle meta;
+		hsapi::Title meta;
 		if(R_FAILED(hsapi::title_meta(meta, id)))
 			continue;
 		queue_add(meta);
@@ -320,7 +320,7 @@ static bool handle_http_request(hlink::HTTPRequestContext ctx, int serverfd, cha
 				goto begin_render;
 			}
 
-			hsapi::FullTitle meta;
+			hsapi::Title meta;
 			if(R_FAILED(hsapi::title_meta(meta, id)))
 			{
 				ren.use("error-message", "failed to add title to queue");

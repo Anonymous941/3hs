@@ -260,8 +260,8 @@ static bool show_searchbar_search()
 		return true;
 	}
 
-	std::vector<hsapi::Title> titles;
-	Result rres = hsapi::call<std::vector<hsapi::Title>&, const std::unordered_map<std::string, std::string>&>(hsapi::search, titles, { { "q", query }, { "qt", "Text" } });
+	std::vector<hsapi::PartialTitle> titles;
+	Result rres = hsapi::call<std::vector<hsapi::PartialTitle>&, const std::unordered_map<std::string, std::string>&>(hsapi::search, titles, { { "q", query }, { "qt", "Text" } });
 	if(R_FAILED(rres)) return true;
 
 	if(titles.size() == 0)
@@ -286,8 +286,8 @@ static bool show_id_search()
 	if(btn != SWKBD_BUTTON_CONFIRM || res == SWKBD_INVALID_INPUT || res == SWKBD_OUTOFMEM || res == SWKBD_BANNED_INPUT)
 		return true;
 
-	hsapi::FullTitle title;
-	Result rres = hsapi::call<hsapi::FullTitle&, hsapi::hid>(hsapi::title_meta, title, id);
+	hsapi::Title title;
+	Result rres = hsapi::call<hsapi::Title&, hsapi::hid>(hsapi::title_meta, title, id);
 	if(R_FAILED(rres)) return true;
 
 	if(show_extmeta(title))
@@ -330,7 +330,27 @@ static bool show_tid_search()
 		return true;
 	}
 
-	next::maybe_install_gam(titles);
+	/* we have to "demote" to PartialTitles here */
+	std::vector<hsapi::PartialTitle> ptitles;
+	ptitles.reserve(titles.size());
+	for(hsapi::Title& title : titles)
+	{
+		ptitles.emplace_back();
+		hsapi::PartialTitle& ptitle = ptitles.back();
+		ptitle.tid = title.tid;
+		ptitle.size = title.size;
+		ptitle.flags = title.flags;
+		ptitle.id = title.id;
+		ptitle.name = title.name;
+		ptitle.alt = title.alt;
+		ptitle.prod = title.prod;
+		ptitle.version = title.version;
+		ptitle.contentType = title.contentType;
+		ptitle.cat = title.cat;
+		ptitle.subcat = title.subcat;
+	}
+
+	next::maybe_install_gam(ptitles);
 	return true;
 }
 
@@ -352,8 +372,8 @@ static bool show_prod_search()
 		return true;
 	}
 
-	std::vector<hsapi::Title> titles;
-	Result rres = hsapi::call<std::vector<hsapi::Title>&, const std::unordered_map<std::string, std::string>&>(hsapi::search, titles, { { "q", prod }, { "qt", "ProductCode" } });
+	std::vector<hsapi::PartialTitle> titles;
+	Result rres = hsapi::call<std::vector<hsapi::PartialTitle>&, const std::unordered_map<std::string, std::string>&>(hsapi::search, titles, { { "q", prod }, { "qt", "ProductCode" } });
 	if(R_FAILED(rres)) return true;
 
 	if(titles.size() == 0)
@@ -510,8 +530,8 @@ static bool legacy_search()
 				return true;
 			}
 
-	std::vector<hsapi::Title> titles;
-	Result rres = hsapi::call<std::vector<hsapi::Title>&, const std::unordered_map<std::string, std::string>&>(hsapi::search, titles, params);
+	std::vector<hsapi::PartialTitle> titles;
+	Result rres = hsapi::call<std::vector<hsapi::PartialTitle>&, const std::unordered_map<std::string, std::string>&>(hsapi::search, titles, params);
 	if(R_FAILED(rres)) return true;
 
 	if(titles.size() == 0)
@@ -607,11 +627,12 @@ static bool show_filter_subcat_select(std::string& ret, filterTextsType filterTe
 	subcategories.push_back(nullptr);
 	msel->add_row(STRING(everything));
 no_add_star:
-	for(hsapi::Subcategory& scat : category->subcategories)
-		if(!should_skip_due_to_filters(filterTexts, filterCount, category->name, scat.name))
+
+	for(auto it = category->subcategories.begin(); it != category->subcategories.end(); ++it)
+		if(!should_skip_due_to_filters(filterTexts, filterCount, category->name, it->second.name))
 		{
-			subcategories.push_back(&scat);
-			msel->add_row(scat.disp);
+			subcategories.push_back(&it->second);
+			msel->add_row(it->second.disp);
 		}
 
 	rq.render_finite_button(KEY_B | KEY_START);
@@ -627,8 +648,7 @@ static bool show_filter_select(std::string& ret, filterTextsType filterTexts, in
 	ret = "";
 
 	std::vector<hsapi::Category *> categories;
-	hsapi::Index *index = hsapi::get_index();
-	categories.reserve(index->categories.size());
+	categories.reserve(hsapi::categories().size());
 
 	ui::builder<ui::MenuSelect>(ui::Screen::bottom)
 		.connect(ui::MenuSelect::on_select, [&ret, &filterTexts, &filterCount, &msel, &categories]() -> bool {
@@ -636,11 +656,11 @@ static bool show_filter_select(std::string& ret, filterTextsType filterTexts, in
 		})
 		.add_to(&msel, rq);
 
-	for(hsapi::Category& cat : index->categories)
-		if(!should_skip_due_to_filters(filterTexts, filterCount, cat.name, "*"))
+	for(auto it = hsapi::categories().begin(); it != hsapi::categories().end(); ++it)
+		if(!should_skip_due_to_filters(filterTexts, filterCount, it->second.name, "*"))
 		{
-			categories.push_back(&cat);
-			msel->add_row(cat.disp);
+			categories.push_back(&it->second);
+			msel->add_row(it->second.disp);
 		}
 
 	rq.render_finite_button(KEY_B | KEY_START);
@@ -764,7 +784,7 @@ static bool show_normal_search()
 		.connect(ui::Button::click, [&]() -> bool {
 			ui::RenderQueue::global()->render_and_then([&]() -> void {
 				std::unordered_map<std::string, std::string> params;
-				std::vector<hsapi::Title> titles;
+				std::vector<hsapi::PartialTitle> titles;
 				if(ctype != ContentType::All) params["p"] = content_type_tab[(int) ctype];
 				params["qt"] = (tabIndex == 0 || tabIndex == 1) ? "Text" : (tabIndex == 2 ? "TitleID" : "ProductCode");
 				params["q"] = kbd->value();
@@ -813,19 +833,21 @@ static bool show_normal_search()
 					if(filterCount[FILTER_INCLUDE]) make_list(params["i"], &filterTexts[FILTER_INCLUDE][1], filterCount[FILTER_INCLUDE]);
 					if(filterCount[FILTER_EXCLUDE]) make_list(params["e"], &filterTexts[FILTER_EXCLUDE][1], filterCount[FILTER_EXCLUDE]);
 				}
-				Result res = hsapi::call<std::vector<hsapi::Title>&, const std::unordered_map<std::string, std::string>&>(hsapi::search, titles, params);
+				Result res = hsapi::call<std::vector<hsapi::PartialTitle>&, const std::unordered_map<std::string, std::string>&>(hsapi::search, titles, params);
 				if(R_SUCCEEDED(res))
 				{
 					/* we may need to post-process the regions */
 					if(tabIndex == 0)
 					{
 						if(!reg_other->checked()) /* include mode */
-							vec_erase_if<hsapi::Title>(titles, [&](const hsapi::Title& title) -> bool {
-								return (reg_usa->checked() && title.subcat != CAT_NA) || (reg_eur->checked() && title.subcat != CAT_EUR) || (reg_jpn->checked() && title.subcat != CAT_JPN);
+							vec_erase_if<hsapi::PartialTitle>(titles, [&](const hsapi::PartialTitle& title) -> bool {
+								hsapi::Subcategory& subcat = hsapi::subcategory(title.cat, title.subcat);
+								return (reg_usa->checked() && subcat.name != CAT_NA) || (reg_eur->checked() && subcat.name != CAT_EUR) || (reg_jpn->checked() && subcat.name != CAT_JPN);
 							});
 						else if(!(/* reg_other->checked() && */ reg_usa->checked() && reg_eur->checked() && reg_jpn->checked())) /* exclude mode */
-							vec_erase_if<hsapi::Title>(titles, [&](const hsapi::Title& title) -> bool {
-								return (!reg_usa->checked() && title.subcat == CAT_NA) || (!reg_eur->checked() && title.subcat == CAT_EUR) || (!reg_jpn->checked() && title.subcat == CAT_JPN);
+							vec_erase_if<hsapi::PartialTitle>(titles, [&](const hsapi::PartialTitle& title) -> bool {
+								hsapi::Subcategory& subcat = hsapi::subcategory(title.cat, title.subcat);
+								return (!reg_usa->checked() && subcat.name == CAT_NA) || (!reg_eur->checked() && subcat.name == CAT_EUR) || (!reg_jpn->checked() && subcat.name == CAT_JPN);
 							});
 					}
 					if(titles.size())

@@ -43,7 +43,7 @@ namespace install
 
 	Result net_cia(get_url_func get_url, u64 tid, prog_func prog = default_prog_func,
 		bool reinstallable = false);
-	Result hs_cia(const hsapi::FullTitle& meta, prog_func prog = default_prog_func,
+	Result hs_cia(const hsapi::Title& meta, prog_func prog = default_prog_func,
 		bool reinstallable = false);
 
 	inline bool is_in_progress()

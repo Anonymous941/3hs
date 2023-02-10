@@ -17,6 +17,8 @@
 #ifndef inc_hsapi_hh
 #define inc_hsapi_hh
 
+#include <nbapi/nbtypes.hh>
+
 #include <unordered_map>
 #include <string>
 #include <vector>
@@ -36,13 +38,14 @@
 
 namespace hsapi
 {
-	using htimestamp = uint64_t; /* unix timestamp type. unsigned because there will be no negative timestamps on hshop */
+	/* base types */
 	using hsize      = uint64_t; /* size type */
 	using hiver      = uint16_t; /* integer version type */
 	using htid       = uint64_t; /* title id type */
-	using hid        = int64_t;  /* landing id type */
-	using hprio      = uint32_t; /* priority */
+	using hid        = uint32_t; /* landing id type */
 	using hflags     = uint64_t; /* flag */
+	using hprio      = uint8_t;  /* priority */
+	using hcid       = uint8_t;  /* (sub)category id */
 
 	namespace TitleFlag
 	{
@@ -69,99 +72,54 @@ namespace hsapi
 		constexpr int mask  = 7;
 	}
 
-	namespace impl
-	{
-		typedef struct BaseCategory
-		{
-			std::string disp; /* display name; use this */
-			std::string name; /* internal short name */
-			std::string desc; /* category description */
-			hsize titles; /* title count */
-			hsize size; /* total size */
-		} BaseCategory;
-	}
+	/* copied NB types */
+	using IndexSubcategory = nb::IndexSubcategory;
+	using IndexCategory = nb::IndexCategory;
+	using PartialTitle = nb::SimpleTitle;
+	using IndexMeta = nb::NbIndexMeta;
+	using Title = nb::Title;
 
-	typedef struct Subcategory : public impl::BaseCategory
-	{
-		std::string cat; /* parent category */
-	} Subcategory;
+	using Subcategory = IndexSubcategory;
+	using Category = IndexCategory;
 
-	typedef struct Category : public impl::BaseCategory
-	{
-		std::vector<Subcategory> subcategories; /* subcategories in this category */
-		hprio prio;
+	using SubcategoryMap = std::map<hcid, Subcategory>;
+	using CategoryMap = std::map<hcid, Category>;
 
-		friend bool operator < (const Category& a, const Category& b)
-		{ return a.prio < b.prio; }
+	/* index ops */
+	void sorted_categories(std::vector<hsapi::Category>& categories);
+	IndexSubcategory& subcategory(hcid cid, hcid sid);
+	IndexCategory& category(hcid cid);
+	CategoryMap& categories();
+	Result fetch_index();
+	IndexMeta& imeta();
 
-		/* find a subcategory by name */
-		Subcategory *find(const std::string& name);
-	} Category;
+	/* title ops */
+	Result search(std::vector<PartialTitle>& ret, const std::unordered_map<std::string, std::string>& params);
+	Result titles_in(std::vector<PartialTitle>& ret, const IndexCategory& cat, const IndexSubcategory& scat);
+	Result get_by_title_id(std::vector<Title>& ret, const std::string& title_id);
+	Result batch_related(std::vector<Title>& ret, const std::vector<htid>& tids);
+	Result title_meta(Title& ret, hid id);
+	Result random(Title& ret);
 
-	typedef struct Index
-	{
-		std::vector<Category> categories; /* categories on hShop */
-		hsize titles; /* total titles on hShop */
-		hsize size; /* total size of hShop */
+	/* misc. api */
+	Result upload_log(const char *contents, u32 size, std::string& logid);
+	Result get_theme_preview_png(std::string& ret, hsapi::hid id);
+	Result get_latest_version_string(std::string& ret);
 
-		/* find a category by name */
-		Category *find(const std::string& name);
-	} Index;
+	/* dlapi ops */
+	Result get_download_link(std::string& ret, const Title& meta);
 
-	typedef struct Title
-	{
-		std::string subcat; /* subcategory this title belongs to */
-		std::string name; /* name of the title on hShop */
-		std::string alt; /* "" if none */
-		std::string cat; /* category this title belongs to */
-		hsize dlCount; /* amount of title downloads */
-		hflags flags; /* title flags */
-		hsize size; /* filesize */
-		htid tid; /* title id of the title */
-		hid id; /* hShop id */
-
-		friend bool operator == (const Title& lhs, const Title& rhs)
-		{ return lhs.id == rhs.id; }
-
-		friend bool operator == (const Title& lhs, hsapi::hid rhs)
-		{ return lhs.id == rhs; }
-	} Title;
-
-	inline const std::string& title_name(const hsapi::Title& title)
-	{
-		return ISET_SHOW_ALT ? (title.alt.size() ? title.alt : title.name) : title.name;
-	}
-
-	typedef struct FullTitle : public Title
-	{
-		std::string prod; /* product code */
-		std::string desc; /* "" if none */
-//		htimestamp updated; /* last updated timestamp */
-//		htimestamp added; /* added on timestamp */
-		hiver version; /* version int */
-		std::string seed;
-	} FullTitle;
-
-	using BatchRelated = std::unordered_map<htid, std::vector<FullTitle>>;
-
+	/* de/initialization */
 	void global_deinit();
 	bool global_init();
 
-	Result get_by_title_id(std::vector<Title>& ret, const std::string& title_id);
-	Result titles_in(std::vector<Title>& ret, const std::string& cat, const std::string& scat);
-	Result batch_related(std::vector<FullTitle>& ret, const std::vector<htid>& tids);
-	Result upload_log(const char *contents, u32 size, std::string& logid);
-	Result search(std::vector<Title>& ret, const std::unordered_map<std::string, std::string>& params);
-	Result get_download_link(std::string& ret, const Title& title);
-	Result get_theme_preview_png(std::string& ret, hid id);
-	Result get_latest_version_string(std::string& ret);
-	Result title_meta(FullTitle& ret, hid id);
-	Result random(FullTitle& ret);
-	Result fetch_index();
-
+	/* offline string construction */
+	std::string format_category_and_subcategory(hcid cid, hcid sid);
 	std::string update_location(const std::string& ver);
-	std::string parse_vstring(hiver ver);
-	Index *get_index();
+	std::string parse_vstring(hiver version);
+
+	inline const std::string& title_name(const hsapi::PartialTitle& title) { return ISET_SHOW_ALT ? (title.alt.size() ? title.alt : title.name) : title.name; }
+	inline const std::string& title_name(const hsapi::Title& title)        { return ISET_SHOW_ALT ? (title.alt.size() ? title.alt : title.name) : title.name; }
 
 	// Silent call. ui::loading() is not called and it will stop after 3 tries
 	template <typename ... Ts>

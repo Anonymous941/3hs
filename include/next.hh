@@ -23,9 +23,9 @@
 
 #include <string>
 
-#define next_cat_exit ((const std::string *) 0)
-#define next_sub_back ((const std::string *) 0)
-#define next_sub_exit ((const std::string *) 1)
+#define next_cat_exit ((const hsapi::Category    *) 0)
+#define next_sub_back ((const hsapi::Subcategory *) 0)
+#define next_sub_exit ((const hsapi::Subcategory *) 1)
 
 #define next_gam_back ((hsapi::hid) -1)
 #define next_gam_exit ((hsapi::hid) -2)
@@ -33,10 +33,10 @@
 
 namespace next
 {
-	const std::string *sel_cat(size_t *cursor = nullptr);
-	const std::string *sel_sub(const std::string& cat, size_t *cursor = nullptr, bool visited = false);
-	hsapi::hid sel_gam(std::vector<hsapi::Title>& titles, size_t *cursor = nullptr);
-	void maybe_install_gam(std::vector<hsapi::Title>& titles);
+	const hsapi::Category *sel_cat(size_t *cursor = nullptr);
+	const hsapi::Subcategory *sel_sub(const hsapi::Category& cat, size_t *cursor = nullptr, bool visited = false);
+	hsapi::hid sel_gam(std::vector<hsapi::PartialTitle>& titles, size_t *cursor = nullptr);
+	void maybe_install_gam(std::vector<hsapi::PartialTitle>& titles);
 }
 
 #endif

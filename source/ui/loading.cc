@@ -131,11 +131,8 @@ bool ui::Spinner::render(ui::Keys& keys)
 	return this->sprite->render(keys);
 }
 
-float ui::Spinner::width()
-{ return this->sprite.ptr()->width(); }
-
-float ui::Spinner::height()
-{ return this->sprite.ptr()->height(); }
+float ui::Spinner::width()  { return this->sprite.ptr()->width(); }
+float ui::Spinner::height() { return this->sprite.ptr()->height(); }
 
 void ui::Spinner::set_x(float x)
 {

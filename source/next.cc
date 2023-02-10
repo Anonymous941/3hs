@@ -31,27 +31,31 @@
 #include "ctr.hh"
 
 
-const std::string *next::sel_cat(size_t *cursor)
+const hsapi::Category *next::sel_cat(size_t *cursor)
 {
-	panic_assert(hsapi::get_index()->categories.size() > *cursor, "invalid cursor position");
+	panic_assert(hsapi::categories().size() > *cursor, "invalid cursor position");
 	using list_t = ui::List<hsapi::Category>;
 
 	std::string desc = set_desc(STRING(select_cat));
 	bool focus = set_focus(false);
-	const std::string *ret = nullptr;
+	const hsapi::Category *ret = nullptr;
 
 	ui::RenderQueue queue;
 
 	ui::CatMeta *meta;
 	list_t *list;
 
-	ui::builder<ui::CatMeta>(ui::Screen::bottom, hsapi::get_index()->categories[*cursor])
+	static std::vector<hsapi::Category> sorted_categories;
+	if(sorted_categories.size() == 0)
+		hsapi::sorted_categories(sorted_categories);
+
+	ui::builder<ui::CatMeta>(ui::Screen::bottom, sorted_categories[*cursor])
 		.add_to(&meta, queue);
 
-	ui::builder<list_t>(ui::Screen::top, &hsapi::get_index()->categories)
+	ui::builder<list_t>(ui::Screen::top, &sorted_categories)
 		.connect(list_t::to_string, [](const hsapi::Category& cat) -> std::string { return cat.disp; })
 		.connect(list_t::select, [&ret](list_t *self, size_t i, u32 kDown) -> bool {
-			ret = &self->at(i).name;
+			ret = &self->at(i);
 			if(kDown & KEY_START)
 				ret = next_cat_exit;
 			return false;
@@ -72,31 +76,32 @@ const std::string *next::sel_cat(size_t *cursor)
 	return ret;
 }
 
-const std::string *next::sel_sub(const std::string& cat, size_t *cursor, bool visited)
+const hsapi::Subcategory *next::sel_sub(const hsapi::Category& cat, size_t *cursor, bool visited)
 {
 	using list_t = ui::List<hsapi::Subcategory>;
 
 	std::string desc = set_desc(STRING(select_subcat));
 	bool focus = set_focus(false);
-	const std::string *ret = nullptr;
+	const hsapi::Subcategory *ret = nullptr;
 
-	hsapi::Category *rcat = hsapi::get_index()->find(cat);
 	ui::RenderQueue queue;
-
-	panic_assert(rcat, "couldn't find category");
 
 	ui::SubMeta *meta;
 	list_t *list;
 
-	panic_assert(rcat->subcategories.size() > *cursor, "invalid cursor position");
+	panic_assert(cat.subcategories.size() > *cursor, "invalid cursor position");
 
-	ui::builder<ui::SubMeta>(ui::Screen::bottom, rcat->subcategories[*cursor])
+	std::vector<hsapi::Subcategory> subcats;
+	for(auto it = cat.subcategories.begin(); it != cat.subcategories.end(); ++it)
+		subcats.push_back(it->second);
+
+	ui::builder<ui::SubMeta>(ui::Screen::bottom, subcats[*cursor])
 		.add_to(&meta, queue);
 
-	ui::builder<list_t>(ui::Screen::top, &rcat->subcategories)
+	ui::builder<list_t>(ui::Screen::top, &subcats)
 		.connect(list_t::to_string, [](const hsapi::Subcategory& scat) -> std::string { return scat.disp; })
 		.connect(list_t::select, [&ret](list_t *self, size_t i, u32 kDown) -> bool {
-			ret = &self->at(i).name;
+			ret = &self->at(i);
 			if(kDown & KEY_B) ret = next_sub_back;
 			if(kDown & KEY_START) ret = next_sub_exit;
 			return false;
@@ -125,10 +130,10 @@ const std::string *next::sel_sub(const std::string& cat, size_t *cursor, bool vi
 		}
 		if(scname)
 		{
-			auto cat = std::find_if(rcat->subcategories.begin(), rcat->subcategories.end(), [scname](const hsapi::Subcategory& sc) -> bool { return sc.name == scname; });
-			if(cat != rcat->subcategories.end())
+			auto cat = std::find_if(subcats.begin(), subcats.end(), [scname](const hsapi::Subcategory& sc) -> bool { return sc.name == scname; });
+			if(cat != subcats.end())
 			{
-				list->set_pos(std::distance(rcat->subcategories.begin(), cat));
+				list->set_pos(std::distance(subcats.begin(), cat));
 				meta->set_sub(*cat);
 			}
 		}
@@ -155,19 +160,19 @@ static bool string_case_cmp(const std::string& a, const std::string& b, bool lt)
 	return lt ? a.size() < b.size() : a.size() > b.size();
 }
 
-static bool sort_alpha_desc(hsapi::Title& a, hsapi::Title& b) { return string_case_cmp(a.name, b.name, false); }
-static bool sort_tid_desc(hsapi::Title& a, hsapi::Title& b) { return a.tid > b.tid; }
-static bool sort_size_desc(hsapi::Title& a, hsapi::Title& b) { return a.size > b.size; }
-static bool sort_downloads_desc(hsapi::Title& a, hsapi::Title& b) { return a.dlCount > b.dlCount; }
-static bool sort_id_desc(hsapi::Title& a, hsapi::Title& b) { return a.id > b.id; }
+static bool sort_alpha_desc(hsapi::PartialTitle& a, hsapi::PartialTitle& b) { return string_case_cmp(a.name, b.name, false); }
+static bool sort_tid_desc(hsapi::PartialTitle& a, hsapi::PartialTitle& b) { return a.tid > b.tid; }
+static bool sort_size_desc(hsapi::PartialTitle& a, hsapi::PartialTitle& b) { return a.size > b.size; }
+static bool sort_downloads_desc(hsapi::PartialTitle& a, hsapi::PartialTitle& b) { return a.dlCount > b.dlCount; }
+static bool sort_id_desc(hsapi::PartialTitle& a, hsapi::PartialTitle& b) { return a.id > b.id; }
 
-static bool sort_alpha_asc(hsapi::Title& a, hsapi::Title& b) { return string_case_cmp(a.name, b.name, true); }
-static bool sort_tid_asc(hsapi::Title& a, hsapi::Title& b) { return a.tid < b.tid; }
-static bool sort_size_asc(hsapi::Title& a, hsapi::Title& b) { return a.size < b.size; }
-static bool sort_downloads_asc(hsapi::Title& a, hsapi::Title& b) { return a.dlCount < b.dlCount; }
-static bool sort_id_asc(hsapi::Title& a, hsapi::Title& b) { return a.id < b.id; }
+static bool sort_alpha_asc(hsapi::PartialTitle& a, hsapi::PartialTitle& b) { return string_case_cmp(a.name, b.name, true); }
+static bool sort_tid_asc(hsapi::PartialTitle& a, hsapi::PartialTitle& b) { return a.tid < b.tid; }
+static bool sort_size_asc(hsapi::PartialTitle& a, hsapi::PartialTitle& b) { return a.size < b.size; }
+static bool sort_downloads_asc(hsapi::PartialTitle& a, hsapi::PartialTitle& b) { return a.dlCount < b.dlCount; }
+static bool sort_id_asc(hsapi::PartialTitle& a, hsapi::PartialTitle& b) { return a.id < b.id; }
 
-static sort_callback<hsapi::Title> get_sort_callback(SortDirection dir, SortMethod method)
+static sort_callback<hsapi::PartialTitle> get_sort_callback(SortDirection dir, SortMethod method)
 {
 	switch(dir)
 	{
@@ -198,10 +203,10 @@ static sort_callback<hsapi::Title> get_sort_callback(SortDirection dir, SortMeth
 //	panic("invalid sort method/direction");
 }
 
-hsapi::hid next::sel_gam(std::vector<hsapi::Title>& titles, size_t *cursor)
+hsapi::hid next::sel_gam(std::vector<hsapi::PartialTitle>& titles, size_t *cursor)
 {
 	panic_assert(titles.size() > *cursor, "invalid cursor position");
-	using list_t = ui::List<hsapi::Title>;
+	using list_t = ui::List<hsapi::PartialTitle>;
 
 	std::string desc = set_desc(STRING(select_title));
 	bool focus = set_focus(false);
@@ -220,7 +225,7 @@ hsapi::hid next::sel_gam(std::vector<hsapi::Title>& titles, size_t *cursor)
 		.add_to(&meta, queue);
 
 	ui::builder<list_t>(ui::Screen::top, &titles)
-		.connect(list_t::to_string, [](const hsapi::Title& title) -> std::string { return hsapi::title_name(title); })
+		.connect(list_t::to_string, [](const hsapi::PartialTitle& title) -> std::string { return hsapi::title_name(title); })
 		.connect(list_t::select, [&ret](list_t *self, size_t i, u32 kDown) -> bool {
 			ret = self->at(i).id;
 			if(kDown & KEY_B) ret = next_gam_back;
@@ -293,7 +298,7 @@ hsapi::hid next::sel_gam(std::vector<hsapi::Title>& titles, size_t *cursor)
 	return ret;
 }
 
-void next::maybe_install_gam(std::vector<hsapi::Title>& titles)
+void next::maybe_install_gam(std::vector<hsapi::PartialTitle>& titles)
 {
 	size_t cur = 0;
 	do {
@@ -301,7 +306,7 @@ void next::maybe_install_gam(std::vector<hsapi::Title>& titles)
 		if(id == next_gam_exit || id == next_gam_back)
 			break;
 
-		hsapi::FullTitle meta;
+		hsapi::Title meta;
 		if(show_extmeta_lazy(titles, id, &meta))
 			install::gui::hs_cia(meta);
 	} while(true);

@@ -44,17 +44,22 @@ static Result FSUSER_AddSeed(u64 tid, const void *seed)
 	return ret;
 }
 
-Result add_seed(hsapi::FullTitle title)
+static bool seed_is_empty(const u8 *seed)
 {
-	if(!title.seed.size()) // title does not have a known seed, or doesn't use one
+	for(int i = 0; i < 16; ++i)
+		if(seed[i] != 0x00)
+			return false;
+	return true;
+}
+
+Result add_seed(const hsapi::Title& title)
+{
+	if(seed_is_empty(title.seed)) // title does not have a known seed, or doesn't use one
 	{
 		ilog("Not adding seed for %016llX", title.tid);
 		return 0x0;
 	}
 	ilog("Adding seed for %016llX", title.tid);
-	nnc_u128 seed_as_int = nnc_u128_from_hex(title.seed.c_str());
-	nnc_u8 seed[0x10];
-	nnc_u128_bytes_be(&seed_as_int, seed);
-	return FSUSER_AddSeed(title.tid, seed);
+	return FSUSER_AddSeed(title.tid, title.seed);
 }
 

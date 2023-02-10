@@ -141,7 +141,7 @@ start_install:
 	return res;
 }
 
-Result install::gui::hs_cia(const hsapi::FullTitle& meta, bool interactive, bool defaultReinstallable, const std::string& label)
+Result install::gui::hs_cia(const hsapi::Title& meta, bool interactive, bool defaultReinstallable, const std::string& label)
 {
 	if(!maybe_warn_already_installed(meta.tid, interactive))
 		return 0;
@@ -177,7 +177,7 @@ start_install:
 		finalize_install(meta.tid, interactive);
 		if(interactive)
 		{
-			if(meta.cat == THEMES_CATEGORY)
+			if(hsapi::category(meta.cat).name == THEMES_CATEGORY)
 				ui::notice(STRING(theme_installed));
 			else if(meta.flags & hsapi::TitleFlag::installer)
 				ui::notice(STRING(file_installed));

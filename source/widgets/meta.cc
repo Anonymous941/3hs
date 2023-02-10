@@ -78,8 +78,8 @@ void ui::CatMeta::set_cat(const hsapi::Category& cat)
 		.under(this->queue.back(), -1.0f)
 		.add_to(this->queue);
 
-	PAIR(ui::human_readable_size_block(cat.size), STRING(size));
-	PAIR(std::to_string(cat.titles), STRING(total_titles));
+	PAIR(ui::human_readable_size_block(cat.meta.size), STRING(size));
+	PAIR(std::to_string(cat.meta.titles), STRING(total_titles));
 	PAIR(cat.desc, STRING(description));
 	clip_q(this->queue, this->get_y());
 }
@@ -121,9 +121,9 @@ void ui::SubMeta::set_sub(const hsapi::Subcategory& sub)
 		.under(this->queue.back(), -1.0f)
 		.add_to(this->queue);
 
-	PAIR(ui::human_readable_size_block(sub.size), STRING(size));
-	PAIR(hsapi::get_index()->find(sub.cat)->disp, STRING(category));
-	PAIR(std::to_string(sub.titles), STRING(total_titles));
+	PAIR(ui::human_readable_size_block(sub.meta.size), STRING(size));
+	PAIR(sub.parent->disp, STRING(category));
+	PAIR(std::to_string(sub.meta.titles), STRING(total_titles));
 	PAIR(sub.desc, STRING(description));
 	clip_q(this->queue, this->get_y());
 }
@@ -147,10 +147,8 @@ float ui::SubMeta::get_x()
 
 /* TitleMeta */
 
-void ui::TitleMeta::setup(const hsapi::Title& meta)
-{ this->set_title(meta); }
-
-void ui::TitleMeta::set_title(const hsapi::Title& meta)
+template <typename T>
+void ui::TitleMeta::setup_with_title(const T& meta)
 {
 	this->queue.clear();
 
@@ -165,14 +163,17 @@ void ui::TitleMeta::set_title(const hsapi::Title& meta)
 		.under(this->queue.back(), -1.0f)
 		.add_to(this->queue);
 
-	hsapi::Category *cat = hsapi::get_index()->find(meta.cat);
-	hsapi::Subcategory *scat = cat ? cat->find(meta.subcat) : nullptr;
-	PAIR((cat ? cat->disp : meta.cat) + " -> " + (scat ? scat->disp : meta.subcat), STRING(category));
+	PAIR(hsapi::format_category_and_subcategory(meta.cat, meta.subcat), STRING(category));
 	PAIR(ctr::tid_to_str(meta.tid), STRING(tid));
 	PAIR(std::to_string(meta.id), STRING(landing_id));
 	PAIR(ui::human_readable_size_block(meta.size), STRING(size));
 	clip_q(this->queue, this->get_y());
 }
+
+void ui::TitleMeta::setup(const hsapi::PartialTitle& meta) { this->setup_with_title<hsapi::PartialTitle>(meta); }
+void ui::TitleMeta::set_title(const hsapi::PartialTitle& meta) { this->setup_with_title<hsapi::PartialTitle>(meta); }
+void ui::TitleMeta::setup(const hsapi::Title& meta) { this->setup_with_title<hsapi::Title>(meta); }
+void ui::TitleMeta::set_title(const hsapi::Title& meta) { this->setup_with_title<hsapi::Title>(meta); }
 
 bool ui::TitleMeta::render(ui::Keys& keys)
 {

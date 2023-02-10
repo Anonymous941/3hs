@@ -24,11 +24,10 @@
 
 /* returns if the user wants to continue installing this title or not.
  * lazy loads full title (for prodcode and version) */
-bool show_extmeta_lazy(std::vector<hsapi::Title>& titles, hsapi::hid id,
-	hsapi::FullTitle *full = nullptr);
-bool show_extmeta_lazy(const hsapi::Title& base, hsapi::FullTitle *full = nullptr);
+bool show_extmeta_lazy(std::vector<hsapi::PartialTitle>& titles, hsapi::hid id, hsapi::Title *full = nullptr);
+bool show_extmeta_lazy(const hsapi::PartialTitle& base, hsapi::Title *full = nullptr);
 /* returns if the user wants to continue installing this title or not */
-bool show_extmeta(const hsapi::FullTitle& title);
+bool show_extmeta(const hsapi::Title& title);
 
 #endif
 
