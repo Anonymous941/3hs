@@ -10,7 +10,6 @@ is hosted on github (mirror source), at https://github.com/MyPasswordIsWeak/3hs.
 
   = = Special thanks to = =
 
-The developers of nlohmann::json (license MIT, see: LICENSE.nlohann-json.TXT), of which their library is bundled,
 Ghost, who made me rethink some obfuscation,
 everyone in the hShop discord channel, for giving me motivation by insisting a 3ds client is too hard to make,
 Coin, for his inspiring lua hShop client,

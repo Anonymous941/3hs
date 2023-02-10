@@ -328,7 +328,7 @@ int main(int argc, char* argv[])
 	// DRM Check
 #ifdef DEVICE_ID
 	u32 devid = 0;
-	panic_assert(R_SUCCEEDED(res = psInit()), "failed to initialize PS");
+	panic_assert(R_SUCCEEDED(psInit()), "failed to initialize PS");
 	PS_GetDeviceId(&devid);
 	psExit();
 	// DRM Check failed
