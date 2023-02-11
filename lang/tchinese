@@ -616,7 +616,7 @@ UI_GLYPH_X: 預覽主題
 - search_prod
 按產品代碼搜索
 
-﻿# scroll, setting title
+# scroll, setting title
 - disable_graph
 禁用延遲圖
 
@@ -765,7 +765,9 @@ UI_GLYPH_X: 預覽主題
 
 # Submit new search and display resulst
 - submit
-提交# label for content type selector for normal search
+提交
+
+# label for content type selector for normal search
 - content_type
 內容類型
 

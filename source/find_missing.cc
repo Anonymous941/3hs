@@ -75,7 +75,7 @@ Result show_find_missing(hsapi::htid tid, size_t& amount_found)
 
 		std::vector<hsapi::Title> newInstalls;
 		std::copy_if(potentialInstalls.begin(), potentialInstalls.end(), std::back_inserter(newInstalls), [installed](const hsapi::Title& title) -> bool {
-			/* don't import demo's */
+			/* don't import demos */
 			if(ctr::get_tid_cat(title.tid) == 0x2)
 				return false;
 			/* already in queue */

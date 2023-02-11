@@ -42,8 +42,7 @@
 
 #define TRY(expr) if((res = ( expr )) != nnc::result::ok) goto fail
 
-template <typename T> /* TODO: Rethink the c_read_stream abstraction */
-static bool fully_buffer_stream(nnc::c_read_stream<T>& stream, nnc::dynamic_array<char>& contents)
+static bool fully_buffer_stream(nnc::read_stream_like& stream, nnc::dynamic_array<char>& contents)
 {
 	size_t len = stream.size();
 	u32 readSize;
@@ -73,9 +72,6 @@ Result install_forwarder(u8 *data, size_t len)
 	nnc::cia cia;
 
 	/* TODO: Test dtors if obj is empty */
-	/* TODO: Move read funcs to read_like_stream instead of c_stream */
-	/* TODO: Wrap the writer api */
-	/* TODO: Helper for nnc::cia_reader to nnc::ncch */
 
 	nnc_wfile wf = { nullptr, nullptr }; /* TODO: Move this to the C++ wrappers once possible */
 
