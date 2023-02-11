@@ -70,7 +70,7 @@ void log_del();
 	#endif
 #else
 	#define l__log(l, ...) _logf(__func__, __FILE__, __LINE__, l, __VA_ARGS__)
-	#define FULL_LOG
+	#define FULL_LOG 1
 #endif
 
 #define elog(...) l__log(LOGLEVEL(error), __VA_ARGS__)

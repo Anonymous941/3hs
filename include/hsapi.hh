@@ -35,6 +35,11 @@
 #include "util.hh"
 #include "i18n.hh"
 
+#define REGION_USA      "north-america"
+#define REGION_EUROPE   "europe"
+#define REGION_JAPAN    "japan"
+#define THEMES_CATEGORY "themes"
+
 
 namespace hsapi
 {
@@ -118,8 +123,8 @@ namespace hsapi
 	std::string update_location(const std::string& ver);
 	std::string parse_vstring(hiver version);
 
-	inline const std::string& title_name(const hsapi::PartialTitle& title) { return ISET_SHOW_ALT ? (title.alt.size() ? title.alt : title.name) : title.name; }
-	inline const std::string& title_name(const hsapi::Title& title)        { return ISET_SHOW_ALT ? (title.alt.size() ? title.alt : title.name) : title.name; }
+	std::string title_name(const hsapi::PartialTitle& title);
+	std::string title_name(const hsapi::Title& title);
 
 	// Silent call. ui::loading() is not called and it will stop after 3 tries
 	template <typename ... Ts>

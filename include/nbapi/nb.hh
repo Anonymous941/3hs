@@ -52,12 +52,6 @@ namespace nb
 		INPUT_DATA_TOO_SHORT = 3,
 	};
 
-	/* this class is actually unused, thus it is empty */
-	class INbDeserializable
-	{
-		/* virtual nb::StatusCode deserialize(u8 *header, u32 header_size, u8 *blob, u32 blob_size) = 0; */
-	};
-
 	template <typename T>
 	static nb::StatusCode parse_full(T& out, u8 *data, size_t size, u32 *out_size = nullptr)
 	{
@@ -100,6 +94,9 @@ namespace nb
 
 		if (hdr->array_header_size + total_objects_size + hdr->shared_blob_size > size)
 			return nb::StatusCode::INPUT_DATA_TOO_SHORT;
+
+		if (!hdr->object_count)
+			return nb::StatusCode::SUCCESS;
 
 		out.reserve(hdr->object_count);
 

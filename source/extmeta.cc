@@ -19,7 +19,6 @@
 #include <widgets/meta.hh>
 #include <ui/base.hh>
 
-#include "installgui.hh" /* THEMES_CATEGORY */
 #include "image_ldr.hh"
 #include "extmeta.hh"
 #include "thread.hh"

@@ -71,8 +71,6 @@ Result install_forwarder(u8 *data, size_t len)
 	nnc::ncch ncch0;
 	nnc::cia cia;
 
-	/* TODO: Test dtors if obj is empty */
-
 	nnc_wfile wf = { nullptr, nullptr }; /* TODO: Move this to the C++ wrappers once possible */
 
 	char *dest, *src, *end, *slash;

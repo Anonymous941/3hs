@@ -39,10 +39,6 @@
 static const char *short_keys[7] = { "i", "e", "sb", "sd", "t", "p", "pr" };
 #define SHORT_KEYS_SIZE (sizeof(short_keys) / sizeof(const char *))
 
-#define CAT_NA "north-america"
-#define CAT_EUR "europe"
-#define CAT_JPN "japan"
-
 static const std::unordered_map<std::string, std::string> keys =
 {
 	{ "include"     , "i"  },
@@ -842,12 +838,12 @@ static bool show_normal_search()
 						if(!reg_other->checked()) /* include mode */
 							vec_erase_if<hsapi::PartialTitle>(titles, [&](const hsapi::PartialTitle& title) -> bool {
 								hsapi::Subcategory& subcat = hsapi::subcategory(title.cat, title.subcat);
-								return (reg_usa->checked() && subcat.name != CAT_NA) || (reg_eur->checked() && subcat.name != CAT_EUR) || (reg_jpn->checked() && subcat.name != CAT_JPN);
+								return (reg_usa->checked() && subcat.name != REGION_USA) || (reg_eur->checked() && subcat.name != REGION_EUROPE) || (reg_jpn->checked() && subcat.name != REGION_JAPAN);
 							});
 						else if(!(/* reg_other->checked() && */ reg_usa->checked() && reg_eur->checked() && reg_jpn->checked())) /* exclude mode */
 							vec_erase_if<hsapi::PartialTitle>(titles, [&](const hsapi::PartialTitle& title) -> bool {
 								hsapi::Subcategory& subcat = hsapi::subcategory(title.cat, title.subcat);
-								return (!reg_usa->checked() && subcat.name == CAT_NA) || (!reg_eur->checked() && subcat.name == CAT_EUR) || (!reg_jpn->checked() && subcat.name == CAT_JPN);
+								return (!reg_usa->checked() && subcat.name == REGION_USA) || (!reg_eur->checked() && subcat.name == REGION_EUROPE) || (!reg_jpn->checked() && subcat.name == REGION_JAPAN);
 							});
 					}
 					if(titles.size())

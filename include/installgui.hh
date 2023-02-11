@@ -27,8 +27,6 @@
 #include "install.hh"
 #include "hsapi.hh"
 
-#define THEMES_CATEGORY "themes"
-
 /* Notes about interactive = false
  *  - Caller displays error
  *  - Caller sets locale

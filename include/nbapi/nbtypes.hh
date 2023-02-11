@@ -50,7 +50,7 @@ namespace nb /* nbType */
 		bool listed;
 	};
 
-	class Title : nb::INbDeserializable, public NbTitle<std::string>
+	class Title : public NbTitle<std::string>
 	{
 	public:
 		static constexpr const char *magic = "TITL";
@@ -62,6 +62,7 @@ namespace nb /* nbType */
 
 			NbTitle<nb::BlobPtr> *thdr = (NbTitle<nb::BlobPtr> *)header;
 
+			this->size = thdr->size;
 			this->tid = thdr->tid;
 			this->added = thdr->added;
 			this->updated = thdr->updated;
@@ -71,6 +72,8 @@ namespace nb /* nbType */
 			this->version = thdr->version;
 			this->contentType = thdr->contentType;
 			this->listed = thdr->listed;
+			this->cat = thdr->cat;
+			this->subcat = thdr->subcat;
 
 			memcpy(this->seed, thdr->seed, 16);
 
@@ -101,7 +104,7 @@ namespace nb /* nbType */
 		u8 prio;
 	};
 
-	class Category : nb::INbDeserializable, public NbCategory<std::string>
+	class Category : public NbCategory<std::string>
 	{
 	public:
 		static constexpr const char *magic = "CATE";
@@ -138,7 +141,7 @@ namespace nb /* nbType */
 		bool standalone;
 	};
 
-	class Subcategory : nb::INbDeserializable, public NbSubcategory<std::string>
+	class Subcategory : public NbSubcategory<std::string>
 	{
 	public:
 		static constexpr const char *magic = "SCAT";
@@ -178,7 +181,7 @@ namespace nb /* nbType */
 		TString sourceUrl;
 	};
 
-	class ThsRelease : nb::INbDeserializable, public NbThsRelease<std::string>
+	class ThsRelease : public NbThsRelease<std::string>
 	{
 	public:
 		static constexpr const char *magic = "3HSR";
@@ -208,7 +211,7 @@ namespace nb /* nbType */
 
 	struct NbIdPair { u64 tid; u32 id; };
 
-	class idPair : NbIdPair, public nb::INbDeserializable
+	class idPair : public NbIdPair
 	{
 	public:
 		static constexpr const char *magic = "PAIR";
@@ -236,7 +239,7 @@ namespace nb /* nbType */
 		TString message;
 	};
 
-	class Result : nb::INbDeserializable, public NbResult<std::string>
+	class Result : public NbResult<std::string>
 	{
 	public:
 		static constexpr const char *magic = "RSLT";
@@ -263,7 +266,7 @@ namespace nb /* nbType */
 		u64 duration;
 	};
 
-	class ThsLogResult : nb::INbDeserializable, public NbThsLogResult
+	class ThsLogResult : public NbThsLogResult
 	{
 	public:
 		static constexpr const char *magic = "HLOG";
@@ -287,12 +290,12 @@ namespace nb /* nbType */
 	template <typename TString>
 	struct NbDLToken
 	{
-		u32 id;
 		u64 expiry;
+		u32 id;
 		TString token;
 	};
 
-	class DLToken : nb::INbDeserializable, public NbDLToken<std::string>
+	class DLToken : public NbDLToken<std::string>
 	{
 	public:
 		static constexpr const char *magic = "TOKN";
@@ -341,7 +344,7 @@ namespace nb /* nbType */
 	};
 
 	class IndexCategory;
-	class IndexSubcategory : nb::INbDeserializable, public NbIndexCategoryBase<std::string>
+	class IndexSubcategory : public NbIndexCategoryBase<std::string>
 	{
 	public:
 		static constexpr const char *magic = "IXCB";
@@ -370,7 +373,7 @@ namespace nb /* nbType */
 
 	// begin runtime classes
 
-	class IndexCategory : nb::INbDeserializable, public NbIndexCategoryBase<std::string>
+	class IndexCategory : public NbIndexCategoryBase<std::string>
 	{
 	public:
 		static constexpr const char *magic = "IXCT"; // even though this won't be used ever since this obj is in an array
@@ -406,7 +409,7 @@ namespace nb /* nbType */
 		u64 Date;
 	};
 
-	class Index : nb::INbDeserializable, public NbIndex
+	class Index : public NbIndex
 	{
 	public:
 		static constexpr const char *magic = "TIDX";
@@ -469,12 +472,12 @@ namespace nb /* nbType */
 		TString alt;
 	};
 
-	class TopTitle : nb::INbDeserializable, public NbTopTitle<std::string>
+	class TopTitle : public NbTopTitle<std::string>
 	{
 	public:
 		nb::StatusCode deserialize(u8 *header, u32 header_size, u8 *blob, u32 blob_size)
 		{
-			if (header_size <= sizeof(NbTopTitle<nb::BlobPtr>))
+			if (header_size < sizeof(NbTopTitle<nb::BlobPtr>))
 				return nb::StatusCode::INPUT_DATA_TOO_SHORT;
 
 			NbTopTitle<nb::BlobPtr> *thdr = (NbTopTitle<nb::BlobPtr> *)header;
@@ -508,12 +511,12 @@ namespace nb /* nbType */
 		u8 subcat;
 	};
 
-	class SimpleTitle : nb::INbDeserializable, public NbSimpleTitle<std::string>
+	class SimpleTitle : public NbSimpleTitle<std::string>
 	{
 	public:
 		nb::StatusCode deserialize(u8 *header, u32 header_size, u8 *blob, u32 blob_size)
 		{
-			if (header_size <= sizeof(NbSimpleTitle<nb::BlobPtr>))
+			if (header_size < sizeof(NbSimpleTitle<nb::BlobPtr>))
 				return nb::StatusCode::INPUT_DATA_TOO_SHORT;
 
 			NbSimpleTitle<nb::BlobPtr> *sthdr = (NbSimpleTitle<nb::BlobPtr> *)header;

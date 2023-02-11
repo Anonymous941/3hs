@@ -42,29 +42,6 @@
 
 #define OK 0
 
-	/* TODO: This */
-#if 0
-	const char *vc_type;
-	switch((t.flags >> hsapi::VCType::shift) & hsapi::VCType::mask)
-	{
-	case hsapi::VCType::gb: vc_type = "[GB] "; break;
-	case hsapi::VCType::gbc: vc_type = "[GBC] "; break;
-	case hsapi::VCType::gba: vc_type = "[GBA] "; break;
-	case hsapi::VCType::nes: vc_type = t.subcat == REGION_JAPAN ? "[Famicom] " : "[NES] "; break;
-	case hsapi::VCType::snes: vc_type = t.subcat == REGION_JAPAN ? "[Super Famicom] " : "[SNES] "; break;
-	case hsapi::VCType::gamegear: vc_type = "[GameGear] "; break;
-	case hsapi::VCType::pcengine: vc_type = t.subcat == REGION_USA ? "[TurboGrafx-16] " : "[PC Engine] "; break;
-	case hsapi::VCType::none:
-	default:
-		vc_type = NULL;
-	}
-	if(vc_type)
-	{
-		if(t.alt.size()) t.alt = vc_type + t.alt;
-		t.name = vc_type + t.name;
-	}
-#endif
-
 /* {{{1 de/initialization */
 
 static u32 *g_socbuf = nullptr;
@@ -121,7 +98,7 @@ static Result basereq(const std::string& url, std::string& data, HTTPC_RequestMe
 	});
 
 	Result res = downloader.execute_once();
-	vlog("Got API data:\n%s", data.c_str());
+	ilog("Got API data header: %.4s", data.c_str());
 	return res;
 }
 
@@ -139,6 +116,23 @@ static Result nbreq(const std::string& url, T& obj, HTTPC_RequestMethod reqm = H
 	if(R_FAILED(res)) return res;
 
 	nb::StatusCode sc = parse_func(obj, (u8 *) data.c_str(), data.size(), nullptr);
+
+	switch(sc)
+	{
+	case nb::StatusCode::SUCCESS:
+		dlog("nb parse: success");
+		break;
+	case nb::StatusCode::NO_INPUT_DATA:
+		dlog("nb parse: no input data");
+		break;
+	case nb::StatusCode::MAGIC_MISMATCH:
+		dlog("nb parse: magic mismatch");
+		break;
+	case nb::StatusCode::INPUT_DATA_TOO_SHORT:
+		dlog("nb parse: input data too short");
+		break;
+	}
+
 	if(sc == nb::StatusCode::MAGIC_MISMATCH)
 	{
 		/* We may have an nb::Result */
@@ -299,7 +293,7 @@ Result hsapi::batch_related(std::vector<hsapi::Title>& ret, const std::vector<hs
 	std::string url = HS_NB_LOC "/title/related/batch?title_ids=" + ctr::tid_to_str(tids[0]);
 	url.reserve((tids.size() - 1) * (16 + 1));
 	for(size_t i = 1; i < tids.size(); ++i)
-		url += ctr::tid_to_str(tids[i]);
+		url += "," + ctr::tid_to_str(tids[i]);
 
 	return nbreqa<hsapi::Title>(url, ret);
 }
@@ -318,7 +312,7 @@ Result hsapi::upload_log(const char *contents, u32 size, std::string& logid)
 {
 	ilog("Uploading log");
 	nb::ThsLogResult logres;
-	Result res = nbreq<nb::ThsLogResult>(HS_SITE_LOC "/loc", logres, HTTPC_METHOD_POST, contents, size);
+	Result res = nbreq<nb::ThsLogResult>(HS_SITE_LOC "/nblog", logres, HTTPC_METHOD_POST, contents, size);
 	if(R_FAILED(res)) return res;
 	char hex[9];
 	snprintf(hex, 9, "%08X", logres.id);
@@ -356,7 +350,7 @@ Result hsapi::get_download_link(std::string& ret, const Title& meta)
 	Result res = nbreq<nb::DLToken>(HS_CDN_BASE "/nbcontent/" + std::to_string(meta.id) + "/request", tok);
 	if(R_FAILED(res)) return res;
 
-	ret = HS_CDN_BASE "/content" + std::to_string(meta.id) + "?token=" + tok.token;
+	ret = HS_CDN_BASE "/nbcontent/" + std::to_string(meta.id) + "?token=" + tok.token;
 	return OK;
 }
 
@@ -393,6 +387,33 @@ std::string hsapi::format_category_and_subcategory(hsapi::hcid cid, hsapi::hcid 
 	hsapi::Subcategory& scat = hsapi::subcategory(cid, sid);
 	return cat.disp + " -> " + scat.disp;
 }
+
+template <typename T>
+std::string real_title_name(const T& title)
+{
+	const std::string& base = ISET_SHOW_ALT ? (title.alt.size() ? title.alt : title.name) : title.name;
+
+	const char *vc_type;
+	switch((title.flags >> hsapi::VCType::shift) & hsapi::VCType::mask)
+	{
+	case hsapi::VCType::gb: vc_type = "[GB] "; break;
+	case hsapi::VCType::gbc: vc_type = "[GBC] "; break;
+	case hsapi::VCType::gba: vc_type = "[GBA] "; break;
+	case hsapi::VCType::nes: vc_type = hsapi::subcategory(title.cat, title.subcat).name == REGION_JAPAN ? "[Famicom] " : "[NES] "; break;
+	case hsapi::VCType::snes: vc_type = hsapi::subcategory(title.cat, title.subcat).name == REGION_JAPAN ? "[Super Famicom] " : "[SNES] "; break;
+	case hsapi::VCType::gamegear: vc_type = "[GameGear] "; break;
+	case hsapi::VCType::pcengine: vc_type = hsapi::subcategory(title.cat, title.subcat).name == REGION_USA ? "[TurboGrafx-16] " : "[PC Engine] "; break;
+	case hsapi::VCType::none:
+	default:
+		vc_type = nullptr;
+		break;
+	}
+
+	return vc_type ? vc_type + base : base;
+}
+
+std::string hsapi::title_name(const hsapi::PartialTitle& title) { return real_title_name(title); }
+std::string hsapi::title_name(const hsapi::Title& title)        { return real_title_name(title); }
 
 /* 1}}} */
 
