@@ -557,7 +557,7 @@ UI_GLYPH_DPAD_CLEAR/UI_GLYPH_CPAD: 导航
 
 # nowrap, burger menu item
 - delete_unused_tickets
-删除未使用的票
+删除未使用的票证
 
 # asking user if they want to delete unused tickets, %1 = amount of unused tickets that were found
 - found_unused_tickets
@@ -565,7 +565,7 @@ UI_GLYPH_DPAD_CLEAR/UI_GLYPH_CPAD: 导航
 
 # informing user that no missing tickets were found
 - found_no_unused_tickets
-没有找到未使用的票。
+没有找到未使用的票证。
 
 # informing user that the preview image (for themes) that was on the server was unable to be displayed
 - invalid_theme_preview
@@ -597,7 +597,7 @@ UI_GLYPH_X：预览主题
 
 # setting description
 - default_reinst_desc
- 默认重新安装； 不要明确要求删除已安装的标题。
+ 默认重新安装； 不要明确要求删除已安装的应用。
 
 # shown while installing a queue on the other screen
 #  %1 = current game title
@@ -623,7 +623,7 @@ UI_GLYPH_X：预览主题
 
 # setting description
 - disable_graph_desc
-禁用安装标题时显示的延迟图。
+禁用安装应用时显示的延迟图。
 
 
 # scroll, setting title
@@ -708,7 +708,7 @@ UI_GLYPH_X：预览主题
 
 # button, save audio engine configuration
 - save
-节省
+保存
 
 
 # button
@@ -718,7 +718,7 @@ UI_GLYPH_X：预览主题
 
 # Button in more menu that leads to audio configuration.
 - audio
-声音的
+音频
 
 
 # button that adds everything in this category as a filter
@@ -728,7 +728,7 @@ UI_GLYPH_X：预览主题
 
 # new search method, has the option of quick filtering of official content categories and the regions europe, north-america and japan
 - quick
-快的
+快速
 
 
 # new search method, has the option of filtering based on advanced filters like on the website
@@ -738,8 +738,8 @@ UI_GLYPH_X：预览主题
 
 # Invalid title id error in new search
 - new_invalid_tid
-错误：输入的标题 ID 无效
-标题 ID 通常结构如下：000400000008B500
+错误：输入的 Title ID 无效
+Title ID 通常结构如下：000400000008B500
 
 
 # Invalid product code error in new search
