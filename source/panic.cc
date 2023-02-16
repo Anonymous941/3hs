@@ -30,7 +30,6 @@
 #include "ctr.hh"
 
 static bool gfx_is_init = false;
-bool ns_was_init = false;
 void gfx_was_init() { gfx_is_init = true; }
 
 Result init_services(bool& isLuma)
@@ -55,8 +54,6 @@ Result init_services(bool& isLuma)
 	TRYINIT("am", amInit());
 	TRYINIT("ac", acInit());
 #undef TRYINIT
-	if(R_SUCCEEDED(nsInit()))
-		ns_was_init = true;
 
 	return res;
 }
@@ -68,8 +65,6 @@ void exit_services()
 	http::ResumableDownload::global_abort();
 	install::global_abort();
 
-	if(ns_was_init)
-		nsExit();
 	mcuHwcExit();
 	httpcExit();
 	ptmSysmExit();

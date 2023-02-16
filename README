@@ -69,6 +69,7 @@ Here is an explication of important directories and their contents:
     audio/               3hs audio subsystem (C code)
     ui/                  contains most code relating to the GUI
     widgets/             contains various miscellaneous widgets for the GUI
+    nbapi/               parser for nbapi (new binary api)
   data/, romfs/          miscellaneous 3hs runtime files
   supplement_font/       contains everything required to build the supplementary font 3hs uses
   gfx/                   some hardcoded images not overridable with the theme system

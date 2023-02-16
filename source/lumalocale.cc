@@ -257,9 +257,14 @@ void luma::maybe_set_gamepatching()
 	// We should prompt for reboot...
 	if(enable_gamepatching())
 	{
-		if(ns_was_init)
+		if(R_SUCCEEDED(nsInit()))
+		{
 			if(ui::Confirm::exec(STRING(reboot_now), STRING(patching_reboot)))
+			{
 				NS_RebootSystem();
+				nsExit(); /* just in case this actually matters */
+			}
+		}
 	}
 }
 

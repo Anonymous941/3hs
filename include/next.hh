@@ -17,15 +17,14 @@
 #ifndef inc_next_hh
 #define inc_next_hh
 
-#include "installgui.hh"
-#include "extmeta.hh"
+#include "settings.hh"
 #include "hsapi.hh"
 
 #include <string>
 
-#define next_cat_exit ((const hsapi::Category    *) 0)
-#define next_sub_back ((const hsapi::Subcategory *) 0)
-#define next_sub_exit ((const hsapi::Subcategory *) 1)
+#define next_cat_exit ((hsapi::hcid) -1)
+#define next_sub_back ((hsapi::hcid) -1)
+#define next_sub_exit ((hsapi::hcid) -2)
 
 #define next_gam_back ((hsapi::hid) -1)
 #define next_gam_exit ((hsapi::hid) -2)
@@ -33,9 +32,15 @@
 
 namespace next
 {
-	const hsapi::Category *sel_cat(size_t *cursor = nullptr);
-	const hsapi::Subcategory *sel_sub(const hsapi::Category& cat, size_t *cursor = nullptr, bool visited = false);
-	hsapi::hid sel_gam(std::vector<hsapi::PartialTitle>& titles, size_t *cursor = nullptr);
+	struct gam_reenter_data {
+		size_t cursor;
+		SortDirection dir;
+		SortMethod sortm;
+	};
+
+	hsapi::hcid sel_cat(size_t *cursor = nullptr);
+	hsapi::hcid sel_sub(hsapi::hcid cat, size_t *cursor = nullptr, bool visited = false);
+	hsapi::hid  sel_gam(std::vector<hsapi::PartialTitle>& titles, struct gam_reenter_data *rdata = nullptr, bool visited = false);
 	void maybe_install_gam(std::vector<hsapi::PartialTitle>& titles);
 }
 

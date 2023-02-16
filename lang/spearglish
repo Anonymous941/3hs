@@ -644,3 +644,21 @@ Addeth
 # search menu option to open normal search
 - normal_search
 N'rmal searcheth
+
+# Slides in screen when a new song is up
+#  %1 = song name
+- playing_x
+♪ Playing %1 ♪
+
+# Slides in screen when a new song is up and it has artist metadata
+#  %1 = song name
+#  %2 = artist name
+- playing_x_by_y
+♪ Playing %1 by %2 ♪
+
+- outdated_system
+An outdat'd system firmware wast did detect.  A system firmware of at least 9.6.0 is requir'd to useth 3hs
+
+# used as a subtext for display the virtual console type in extmeta, "Virtual Console" should probably be left untranslated, double capital (the V and C) is very important
+- virtual_console_type
+Virtual Console typeth

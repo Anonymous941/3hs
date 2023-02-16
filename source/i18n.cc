@@ -31,19 +31,13 @@ const char *i18n::getstr(str::type id)
 	return store->string;
 }
 
-const char *i18n::getstr_param(str::type id, const std::vector<std::string>& params)
+const char *i18n::detail::getstr_param(str::type id, const std::vector<std::string>& params)
 {
 	I18NStringStore *store = RAW(get_nsettings()->lang, id);
 	if(store->info & INFO_ISFUNC)
 		return store->function(params);
 	else
 		return store->string;
-}
-
-const char *i18n::getsurestr(str::type sid)
-{
-	ensure_settings();
-	return i18n::getstr(sid);
 }
 
 // https://www.3dbrew.org/wiki/Country_Code_List
@@ -73,6 +67,8 @@ namespace ProvinceCode
 	};
 }
 
+#define DEFAULT_LANG(id) IS_STALLED_##id ? lang::english : lang::id
+
 lang::type i18n::default_lang()
 {
 	u8 syslang = 0;
@@ -88,18 +84,20 @@ lang::type i18n::default_lang()
 
 	switch(countryinfo[3])
 	{
-	case CountryCode::hungary: return lang::hungarian;
-	case CountryCode::romania: return lang::romanian;
-	case CountryCode::latvia: return lang::latvian;
-	case CountryCode::poland: return lang::polish;
-	case CountryCode::greece: return lang::greek;
+	case CountryCode::hungary: return DEFAULT_LANG(hungarian);
+	case CountryCode::romania: return DEFAULT_LANG(romanian);
+	case CountryCode::latvia: return DEFAULT_LANG(latvian);
+	case CountryCode::poland: return DEFAULT_LANG(polish);
+	case CountryCode::greece: return DEFAULT_LANG(greek);
 	case CountryCode::spain:
+#if !IS_STALLED_catalan /* if Catalan is stalled users would probably want normal Spanish */
 		if(countryinfo[2] == ProvinceCode::sp_catalonia)
 			return lang::catalan;
 		break;
+#endif
 	case CountryCode::united_kingdom:
 		if(countryinfo[2] == ProvinceCode::uk_wales)
-			return lang::welsh;
+			return DEFAULT_LANG(welsh); /* if Welsh would be stalled users would want English; the default for stalled langs */
 		break;
 	}
 
@@ -108,22 +106,30 @@ lang::type i18n::default_lang()
 	case CFG_LANGUAGE_JP:
 		switch(countryinfo[2])
 		{
+#if !IS_STALLED_ryukyuan
 		case ProvinceCode::japan_okinawa: return lang::ryukyuan;
+#endif
+#if !IS_STALLED_jp_osaka
 		case ProvinceCode::japan_osaka: return lang::jp_osaka;
+#endif
 		}
-		return lang::japanese;
+		return DEFAULT_LANG(japanese);
 	case CFG_LANGUAGE_FR:
+#if IS_STALLED_fr_canada
+		return DEFAULT_LANG(french);
+#else
 		return countryinfo[3] == CountryCode::canada
-			? lang::fr_canada : lang::french;
-	case CFG_LANGUAGE_DE: return lang::german;
-	case CFG_LANGUAGE_IT: return lang::italian;
-	case CFG_LANGUAGE_ES: return lang::spanish;
-	case CFG_LANGUAGE_ZH: return lang::schinese;
-	case CFG_LANGUAGE_KO: return lang::korean;
-	case CFG_LANGUAGE_NL: return lang::dutch;
-	case CFG_LANGUAGE_PT: return lang::portuguese;
-	case CFG_LANGUAGE_RU: return lang::russian;
-	case CFG_LANGUAGE_TW: return lang::tchinese;
+			? lang::fr_canada : DEFAULT_LANG(french);
+#endif
+	case CFG_LANGUAGE_DE: return DEFAULT_LANG(german);
+	case CFG_LANGUAGE_IT: return DEFAULT_LANG(italian);
+	case CFG_LANGUAGE_ES: return DEFAULT_LANG(spanish);
+	case CFG_LANGUAGE_ZH: return DEFAULT_LANG(schinese);
+	case CFG_LANGUAGE_KO: return DEFAULT_LANG(korean);
+	case CFG_LANGUAGE_NL: return DEFAULT_LANG(dutch);
+	case CFG_LANGUAGE_PT: return DEFAULT_LANG(portuguese);
+	case CFG_LANGUAGE_RU: return DEFAULT_LANG(russian);
+	case CFG_LANGUAGE_TW: return DEFAULT_LANG(tchinese);
 	case CFG_LANGUAGE_EN: // fallthrough
 	default: return lang::english;
 	}

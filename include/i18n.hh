@@ -27,7 +27,6 @@
 
 // ParamSTRING
 #define PSTRING(x, ...) i18n::interpolate(str::x, __VA_ARGS__)
-#define SURESTRING(x) i18n::getsurestr(str::x)
 #define STRING(x) i18n::getstr(str::x)
 #define TL(x) x
 
@@ -38,17 +37,14 @@ namespace i18n
 	const char *getstr(str::type sid, str::type lid);
 	const char *getstr(str::type id);
 
-	const char *getstr_param(str::type id, const std::vector<std::string>& params);
-
-	/* ensure the config exists; more expensive than getstr() */
-	const char *getsurestr(str::type id);
-
 	lang::type default_lang();
 
 	// from here on out it's template shit
 
 	namespace detail
 	{
+		const char *getstr_param(str::type id, const std::vector<std::string>& params);
+
 		template <typename T,
 				// Does T have a std::to_string() overload?
 				typename = decltype(std::to_string(std::declval<T>()))

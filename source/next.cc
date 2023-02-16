@@ -23,6 +23,8 @@
 #include <algorithm>
 #include <ctype.h>
 
+#include "installgui.hh"
+#include "extmeta.hh"
 #include "hsapi.hh"
 #include "queue.hh"
 #include "panic.hh"
@@ -31,14 +33,14 @@
 #include "ctr.hh"
 
 
-const hsapi::Category *next::sel_cat(size_t *cursor)
+hsapi::hcid next::sel_cat(size_t *cursor)
 {
 	panic_assert(hsapi::categories().size() > *cursor, "invalid cursor position");
 	using list_t = ui::List<hsapi::Category>;
 
 	std::string desc = set_desc(STRING(select_cat));
 	bool focus = set_focus(false);
-	const hsapi::Category *ret = nullptr;
+	hsapi::hcid ret = next_cat_exit;
 
 	ui::RenderQueue queue;
 
@@ -55,7 +57,7 @@ const hsapi::Category *next::sel_cat(size_t *cursor)
 	ui::builder<list_t>(ui::Screen::top, &sorted_categories)
 		.connect(list_t::to_string, [](const hsapi::Category& cat) -> std::string { return cat.disp; })
 		.connect(list_t::select, [&ret](list_t *self, size_t i, u32 kDown) -> bool {
-			ret = &self->at(i);
+			ret = self->at(i).id;
 			if(kDown & KEY_START)
 				ret = next_cat_exit;
 			return false;
@@ -76,13 +78,15 @@ const hsapi::Category *next::sel_cat(size_t *cursor)
 	return ret;
 }
 
-const hsapi::Subcategory *next::sel_sub(const hsapi::Category& cat, size_t *cursor, bool visited)
+hsapi::hcid next::sel_sub(hsapi::hcid cat_id, size_t *cursor, bool visited)
 {
 	using list_t = ui::List<hsapi::Subcategory>;
 
+	hsapi::Category& cat = hsapi::category(cat_id);
+
 	std::string desc = set_desc(STRING(select_subcat));
 	bool focus = set_focus(false);
-	const hsapi::Subcategory *ret = nullptr;
+	hsapi::hcid ret = next_sub_back;
 
 	ui::RenderQueue queue;
 
@@ -101,7 +105,7 @@ const hsapi::Subcategory *next::sel_sub(const hsapi::Category& cat, size_t *curs
 	ui::builder<list_t>(ui::Screen::top, &subcats)
 		.connect(list_t::to_string, [](const hsapi::Subcategory& scat) -> std::string { return scat.disp; })
 		.connect(list_t::select, [&ret](list_t *self, size_t i, u32 kDown) -> bool {
-			ret = &self->at(i);
+			ret = self->at(i).id;
 			if(kDown & KEY_B) ret = next_sub_back;
 			if(kDown & KEY_START) ret = next_sub_exit;
 			return false;
@@ -203,9 +207,8 @@ static sort_callback<hsapi::PartialTitle> get_sort_callback(SortDirection dir, S
 //	panic("invalid sort method/direction");
 }
 
-hsapi::hid next::sel_gam(std::vector<hsapi::PartialTitle>& titles, size_t *cursor)
+hsapi::hid next::sel_gam(std::vector<hsapi::PartialTitle>& titles, struct gam_reenter_data *rdata, bool visited)
 {
-	panic_assert(titles.size() > *cursor, "invalid cursor position");
 	using list_t = ui::List<hsapi::PartialTitle>;
 
 	std::string desc = set_desc(STRING(select_title));
@@ -214,14 +217,26 @@ hsapi::hid next::sel_gam(std::vector<hsapi::PartialTitle>& titles, size_t *curso
 
 	SortDirection dir = SETTING_DEFAULT_SORTDIRECTION;
 	SortMethod sortm = SETTING_DEFAULT_SORTMETHOD;
-	std::sort(titles.begin(), titles.end(), get_sort_callback(dir, sortm));
+	size_t cursor = 0;
+
+	if(visited && rdata)
+	{
+		/* we need to copy the state */
+		dir = rdata->dir;
+		sortm = rdata->sortm;
+		cursor = rdata->cursor;
+	}
+	else
+		std::sort(titles.begin(), titles.end(), get_sort_callback(dir, sortm));
+
+	panic_assert(titles.size() > cursor, "invalid cursor position");
 
 	ui::RenderQueue queue;
 
 	ui::TitleMeta *meta;
 	list_t *list;
 
-	ui::builder<ui::TitleMeta>(ui::Screen::bottom, titles[*cursor])
+	ui::builder<ui::TitleMeta>(ui::Screen::bottom, titles[cursor])
 		.add_to(&meta, queue);
 
 	ui::builder<list_t>(ui::Screen::top, &titles)
@@ -289,9 +304,16 @@ hsapi::hid next::sel_gam(std::vector<hsapi::PartialTitle>& titles, size_t *curso
 			return true;
 		}).add_to(queue);
 
-	if(cursor != nullptr) list->set_pos(*cursor);
+	list->set_pos(cursor);
 	queue.render_finite();
-	if(cursor != nullptr) *cursor = list->get_pos();
+
+	/* we always want to store into rdata */
+	if(rdata)
+	{
+		rdata->cursor = list->get_pos();
+		rdata->sortm = sortm;
+		rdata->dir = dir;
+	}
 
 	set_focus(focus);
 	set_desc(desc);
@@ -300,9 +322,12 @@ hsapi::hid next::sel_gam(std::vector<hsapi::PartialTitle>& titles, size_t *curso
 
 void next::maybe_install_gam(std::vector<hsapi::PartialTitle>& titles)
 {
-	size_t cur = 0;
+	next::gam_reenter_data rdata;
+	bool first = true;
 	do {
-		hsapi::hid id = next::sel_gam(titles, &cur);
+		hsapi::hid id = next::sel_gam(titles, &rdata, !first);
+		first = false;
+
 		if(id == next_gam_exit || id == next_gam_back)
 			break;
 

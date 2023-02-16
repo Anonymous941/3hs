@@ -46,6 +46,7 @@
 #include "ctr.hh"
 
 #define ENVINFO (* (u8 *) 0x1FF80014)
+#define VERSION_CHECK 1
 #define TIP_GIVER 0
 
 #ifndef RELEASE
@@ -75,7 +76,7 @@ public:
 
 	int fps()
 	{
-		return this->frames[this->i == 0 ? 1 : 0].frames;
+		return this->frames[1 - this->i].frames;
 	}
 
 private:
@@ -99,7 +100,7 @@ private:
 	void switch_frame(time_t d)
 	{
 		this->set_label(this->frames[this->i].frames);
-		this->i = this->i == 0 ? 1 : 0;
+		this->i = 1 - this->i;
 		this->frames[this->i].time = d;
 		this->frames[this->i].frames = 0;
 	}
@@ -173,6 +174,18 @@ int main(int argc, char* argv[])
 	hidScanInput();
 	if((hidKeysDown() | hidKeysHeld()) & KEY_R)
 		reset_settings();
+
+#if VERSION_CHECK
+	// Check if we are under system version 9.6 (9.6 added seed support, which is essential for most new titles)
+	OS_VersionBin version;
+	if(R_SUCCEEDED(osGetSystemVersionData(nullptr, &version)))
+		if(SYSTEM_VERSION(version.mainver, version.minor, version.build) < SYSTEM_VERSION(9, 6, 0))
+		{
+			flog("User is on an unsupported system version: %d.%d.%d", version.mainver, version.minor, version.build);
+			ui::notice(STRING(outdated_system));
+			exit(0);
+		}
+#endif
 
 #ifdef RELEASE
 	// Check if luma is installed
@@ -384,42 +397,47 @@ int main(int argc, char* argv[])
 
 	vlog("Done fetching index.");
 
-	size_t catptr = 0, subptr = 0, gamptr = 0;
-	const hsapi::Category *associatedcat = nullptr;
-	const hsapi::Subcategory *associatedsub = nullptr;
+	size_t catptr = 0, subptr = 0;
+	hsapi::hcid associatedcat = -1, associatedsub = -1;
 	std::vector<hsapi::PartialTitle> titles;
-	bool visited_sub = false;
+	bool visited_sub = false, visited_gam = false;
+	next::gam_reenter_data grdata;
 
 	// Old logic was cursed, made it a bit better :blobaww:
 	while(aptMainLoop())
 	{
 cat:
-		const hsapi::Category *cat = next::sel_cat(&catptr);
+		hsapi::hcid cat = next::sel_cat(&catptr);
 		// User wants to exit app
 		if(cat == next_cat_exit) break;
-		ilog("NEXT(c): %s", cat->name.c_str());
+		ilog("NEXT(c): %s", hsapi::category(cat).name.c_str());
 
 sub:
 		visited_sub = associatedcat == cat;
 		if(!visited_sub) subptr = 0;
 		associatedcat = cat;
 
-		const hsapi::Subcategory *sub = next::sel_sub(*cat, &subptr, visited_sub);
+		hsapi::hcid sub = next::sel_sub(cat, &subptr, visited_sub);
 		if(sub == next_sub_back) goto cat;
 		if(sub == next_sub_exit) break;
-		ilog("NEXT(s): %s", sub->name.c_str());
+		ilog("NEXT(s): %s", hsapi::subcategory(cat, sub).name.c_str());
 
 		if(associatedsub != sub)
 		{
 			titles.clear();
-			gamptr = 0;
-			if(R_FAILED(hsapi::call(hsapi::titles_in, titles, *cat, *sub)))
+			const hsapi::Category& cato = hsapi::category(cat);
+			const hsapi::Subcategory& subo = hsapi::subcategory(cat, sub);
+			visited_gam = false;
+			if(R_FAILED(hsapi::call(hsapi::titles_in, titles, cato, subo)))
 				goto sub;
 			associatedsub = sub;
 		}
+		/* if we are re-entering the subcategory we don't have to resort, which
+		 * this variable controls */
+		else visited_gam = true;
 
 gam:
-		hsapi::hid id = next::sel_gam(titles, &gamptr);
+		hsapi::hid id = next::sel_gam(titles, &grdata, visited_gam);
 		if(id == next_gam_back) goto sub;
 		if(id == next_gam_exit) break;
 

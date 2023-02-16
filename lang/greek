@@ -609,3 +609,15 @@ Aποθήκευση
 
 - normal_search
 Κανονική αναζήτηση
+
+- playing_x
+♪ Παίζει %1 ♪
+
+- playing_x_by_y
+♪ Παίζει %1 από %2 ♪
+
+- outdated_system
+Εντοπίστηκε ένα ξεπερασμένο firmware συστήματος. Για τη χρήση του 3hs απαιτείται firmware συστήματος τουλάχιστον 9.6.0.
+
+- virtual_console_type
+Τύπος Virtual Console

@@ -826,5 +826,12 @@ Normal search
 - playing_x_by_y
 ♪ Playing %1 by %2 ♪
 
+- outdated_system
+An outdated system firmware was detected. A system firmware of at least 9.6.0 is required to use 3hs.
+
+# used as a subtext for display the virtual console type in extmeta, "Virtual Console" should probably be left untranslated, double capital (the V and C) is very important
+- virtual_console_type
+Virtual Console type
+
 # -- v1.4.2 barrier -- #
 

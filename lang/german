@@ -591,3 +591,15 @@ Hinzufüfen
 
 - normal_search
 Normale Suche
+
+- playing_x
+♪ Spielt: %1 ♪
+
+- playing_x_by_y
+♪ Spielt %1 von %2 ♪
+
+- outdated_system
+Eine veraltete Systemfirmware wurde gefunden. Eine Systemfirmware von mindestens 9.6.0 ist benötigt um 3hs zu verwenden.
+
+- virtual_console_type
+Virtual Console-Typ

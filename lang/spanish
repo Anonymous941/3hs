@@ -644,3 +644,21 @@ Añadir
 # search menu option to open normal search
 - normal_search
 Búsqueda normal
+
+# Slides in screen when a new song is up
+#  %1 = song name
+- playing_x
+♪ Reproduciendo %1 ♪
+
+# Slides in screen when a new song is up and it has artist metadata
+#  %1 = song name
+#  %2 = artist name
+- playing_x_by_y
+♪ Reproduciendo %1 por %2 ♪
+
+- outdated_system
+Se detectó un firmware del sistema obsoleto. Se requiere un firmware del sistema de por lo menos la versión 9.6.0 para usar 3hs.
+
+# used as a subtext for display the virtual console type in extmeta, "Virtual Console" should probably be left untranslated, double capital (the V and C) is very important
+- virtual_console_type
+Tipo de Virtual Console

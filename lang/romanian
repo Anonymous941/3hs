@@ -641,3 +641,21 @@ Adăugați
 # search menu option to open normal search
 - normal_search
 Căutare normală
+
+# Slides in screen when a new song is up
+#  %1 = song name
+- playing_x
+♪ Rulează %1 ♪
+
+# Slides in screen when a new song is up and it has artist metadata
+#  %1 = song name
+#  %2 = artist name
+- playing_x_by_y
+♪ Rulează %1 de %2 ♪
+
+- outdated_system
+O versiune învechită de sistem a fost detectată. Versiunea de sistem 9.6.0 este necesară pentru 3hs.
+
+# used as a subtext for display the virtual console type in extmeta, "Virtual Console" should probably be left untranslated, double capital (the V and C) is very important
+- virtual_console_type
+Tip Virtual Console

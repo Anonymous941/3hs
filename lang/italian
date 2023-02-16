@@ -649,3 +649,20 @@ Aggiungi
 - normal_search
 Ricerca normale
 
+# Slides in screen when a new song is up
+#  %1 = song name
+- playing_x
+♪ Riproducendo %1 ♪
+
+# Slides in screen when a new song is up and it has artist metadata
+#  %1 = song name
+#  %2 = artist name
+- playing_x_by_y
+♪ Riproducendo %1 di %2 ♪
+
+- outdated_system
+È stato rilevato un firmware di sistema obsoleto. Per utilizzare 3hs è necessario un firmware di versione almeno 9.6.0.
+
+# used as a subtext for display the virtual console type in extmeta, "Virtual Console" should probably be left untranslated, double capital (the V and C) is very important
+- virtual_console_type
+Tipo di Virtual Console

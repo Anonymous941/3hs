@@ -101,6 +101,7 @@ static extmeta_return extmeta(ui::RenderQueue& queue, const TTitle& base, const 
 	/***
 	 * name (wrapped)
 	 * alt_name (maybe) (wrapped)
+	 * virtual console type (maybe)
 	 * category -> subcategory
 	 *
 	 * "Press a to install, b to not"
@@ -135,6 +136,37 @@ static extmeta_return extmeta(ui::RenderQueue& queue, const TTitle& base, const 
 			.wrap()
 			.add_to(queue);
 		ui::builder<ui::Text>(ui::Screen::top, STRING(alt_name))
+			.size(0.45f)
+			.x(9.0f)
+			.under(queue.back(), -1.0f)
+			.add_to(queue);
+	}
+
+
+	/* virtual console type */
+	const char *vc_type;
+	switch((base.flags >> hsapi::VCType::shift) & hsapi::VCType::mask)
+	{
+	case hsapi::VCType::gb: vc_type = "Game Boy"; break;
+	case hsapi::VCType::gbc: vc_type = "Game Boy Color"; break;
+	case hsapi::VCType::gba: vc_type = "Game Boy Advance"; break;
+	case hsapi::VCType::nes: vc_type = hsapi::subcategory(base.cat, base.subcat).name == REGION_JAPAN ? "Famicom" : "Nintendo Entertainment System"; break;
+	case hsapi::VCType::snes: vc_type = hsapi::subcategory(base.cat, base.subcat).name == REGION_JAPAN ? "Super Famicom" : "Super Nintendo Entertainment System"; break;
+	case hsapi::VCType::gamegear: vc_type = "Game Gear"; break;
+	case hsapi::VCType::pcengine: vc_type = hsapi::subcategory(base.cat, base.subcat).name == REGION_USA ? "TurboGrafx-16" : "PC Engine"; break;
+	case hsapi::VCType::none:
+	default:
+		vc_type = nullptr;
+	}
+
+	if(vc_type)
+	{
+		ui::builder<ui::Text>(ui::Screen::top, vc_type)
+			.x(9.0f)
+			.under(queue.back(), 1.0f)
+			.wrap()
+			.add_to(queue);
+		ui::builder<ui::Text>(ui::Screen::top, STRING(virtual_console_type))
 			.size(0.45f)
 			.x(9.0f)
 			.under(queue.back(), -1.0f)

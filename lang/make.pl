@@ -6,10 +6,12 @@ use utf8;
 
 # ====================== #
 
+my $min_missing_to_stall = 10;
 my $build_dir = "build";
 my $lang_dir = "lang";
 my $print_missing = 0;
 my $without_color = 0;
+my $dry_run = 0;
 
 # NOTE: The first language in this array
 #       will be used as the base language.
@@ -72,10 +74,11 @@ GetOptions(
 	"build|b=s", \$build_dir,
 	"print-missing|m", \$print_missing,
 	"no-color|c", \$without_color,
+	"dry-run|dry|d", \$dry_run,
 ) or die;
 
 -d $lang_dir or die "no language directory available.";
--d $build_dir or die "no build directory available.";
+-d $build_dir or die "no build directory available." unless $dry_run;
 
 my $source_file = "";
 my $header_file = "";
@@ -86,6 +89,7 @@ my $total_missing = 0;
 
 my $func_ctr = 0;
 
+my @stalled_langs = qw();
 my @string_ids = qw();
 
 my $red_fmt = $without_color ? "" : "\033[31;1m";
@@ -240,11 +244,21 @@ EOF
 	if(not $is_reference_lang) {
 		if($missing) {
 			if($print_missing) {
-				print " are missing\n";
+				print " are missing";
 			}
 			else {
-				print $red_fmt."$missing".$clr_fmt." missing\n";
+				print $red_fmt."$missing".$clr_fmt." missing";
 			}
+			# If there are more than 10 missing strings we can
+			# consider the language stalled, it's kept
+			# in there for if anyone picks it up again
+			# but it won't be a default anymore
+			if ($missing > $min_missing_to_stall) {
+				push @stalled_langs, $lang_name;
+				print " (stalled)";
+			}
+			print "\n";
+
 			$total_missing += $missing;
 			++$langs_w_missing;
 		} else {
@@ -428,29 +442,38 @@ for my $i (0..$#lang_names) {
 	$header_file .= "\tA($name, lang::$id) \\\n";
 }
 
+$header_file .= "\n";
+for my $i (0..$#lang_names) {
+	my $id = $lang_names[$i];
+	my $is_stalled = grep /^$id$/, @stalled_langs;
+	$header_file .= '#define IS_STALLED_'.$id.' '.$is_stalled."\n";
+}
+
 $header_file .= <<EOF;
 
 #endif
 EOF
 
-my $old_header = "";
-my $rheader;
-open $rheader, "<", "$build_dir/i18n_tab.hh" and do {
-	local $/;
-	$old_header = <$rheader>;
-};
+unless ($dry_run) {
+	my $old_header = "";
+	my $rheader;
+	open $rheader, "<", "$build_dir/i18n_tab.hh" and do {
+		local $/;
+		$old_header = <$rheader>;
+	};
 
-# Try to not write the header to save us a recompile if we just changed a single string
-$old_header eq $header_file or do {
-	my $header;
-	open $header, ">", "$build_dir/i18n_tab.hh" or die "failed to write i18n_tab.hh";
-	print $header $header_file;
-	close $header;
-};
+	# Try to not write the header to save us a recompile if we just changed a single string
+	$old_header eq $header_file or do {
+		my $header;
+		open $header, ">", "$build_dir/i18n_tab.hh" or die "failed to write i18n_tab.hh";
+		print $header $header_file;
+		close $header;
+	};
 
-open my $source, ">", "$build_dir/i18n_tab.cc" or die "failed to write i18n_tab.cc";
-print $source $source_file;
-close $source;
+	open my $source, ">", "$build_dir/i18n_tab.cc" or die "failed to write i18n_tab.cc";
+	print $source $source_file;
+	close $source;
+}
 
 if($langs_w_missing) {
 	print "missing $total_missing strings in $langs_w_missing languages\n";
