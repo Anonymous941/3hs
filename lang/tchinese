@@ -557,7 +557,7 @@ UI_GLYPH_DPAD_CLEAR/UI_GLYPH_CPAD: 導航
 
 # nowrap, burger menu item
 - delete_unused_tickets
-刪除未使用的票
+刪除未使用的票證
 
 # asking user if they want to delete unused tickets, %1 = amount of unused tickets that were found
 - found_unused_tickets
@@ -565,7 +565,7 @@ UI_GLYPH_DPAD_CLEAR/UI_GLYPH_CPAD: 導航
 
 # informing user that no missing tickets were found
 - found_no_unused_tickets
-沒有找到未使用的票。
+沒有找到未使用的票證。
 
 # informing user that the preview image (for themes) that was on the server was unable to be displayed
 - invalid_theme_preview
@@ -708,7 +708,7 @@ UI_GLYPH_X: 預覽主題
 
 # button, save audio engine configuration
 - save
-節省
+保存
 
 
 # button
@@ -718,7 +718,7 @@ UI_GLYPH_X: 預覽主題
 
 # Button in more menu that leads to audio configuration.
 - audio
-聲音的
+音訊
 
 
 # button that adds everything in this category as a filter
@@ -728,7 +728,7 @@ UI_GLYPH_X: 預覽主題
 
 # new search method, has the option of quick filtering of official content categories and the regions europe, north-america and japan
 - quick
-快的
+快速
 
 
 # new search method, has the option of filtering based on advanced filters like on the website
