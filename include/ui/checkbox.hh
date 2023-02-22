@@ -43,6 +43,8 @@ namespace ui
 		enum connect_type { on_change };
 		void connect(connect_type, std::function<void(bool)> cb);
 
+		void set_checked(bool c);
+
 
 	private:
 		UI_SLOTS_PROTO(CheckBox, 2)

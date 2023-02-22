@@ -33,6 +33,7 @@
 #include "next.hh"
 #include "util.hh"
 #include "i18n.hh"
+#include "ctr.hh"
 
 #include <algorithm>
 
@@ -663,6 +664,12 @@ static bool show_filter_select(std::string& ret, filterTextsType filterTexts, in
 	return !!ret.size();
 }
 
+#define TAB_QUICK    0
+#define TAB_FILTERED 1
+#define TAB_TID      2
+#define TAB_PROD     3
+#define TAB_LGY      4 /* TODO */
+
 static bool show_normal_search()
 {
 	/* normal search may be the most complicated ui code in the whole 3hs project */
@@ -697,9 +704,9 @@ static bool show_normal_search()
 		bool yes = checker_funcs[idx](kbd->value());
 		submit->set_hidden(!yes);
 		const char *text = nullptr;
-		if(idx == 2 && !yes)
+		if(idx == TAB_TID && !yes)
 			text = STRING(new_invalid_tid);
-		else if(idx == 3 && !yes)
+		else if(idx == TAB_PROD && !yes)
 			text = STRING(new_invalid_prod);
 
 		if(!kbd->is_empty() && text)
@@ -782,10 +789,10 @@ static bool show_normal_search()
 				std::unordered_map<std::string, std::string> params;
 				std::vector<hsapi::PartialTitle> titles;
 				if(ctype != ContentType::All) params["p"] = content_type_tab[(int) ctype];
-				params["qt"] = (tabIndex == 0 || tabIndex == 1) ? "Text" : (tabIndex == 2 ? "TitleID" : "ProductCode");
+				params["qt"] = (tabIndex == TAB_QUICK || tabIndex == TAB_FILTERED) ? "Text" : (tabIndex == TAB_TID ? "TitleID" : "ProductCode");
 				params["q"] = kbd->value();
 				/* both quick(0) and filtered(1) have additional parameters that we need to set */
-				if(tabIndex == 0)
+				if(tabIndex == TAB_QUICK)
 				{
 					std::string p;
 					bool exclude = false;
@@ -817,7 +824,7 @@ static bool show_normal_search()
 						params[key] = p;
 					}
 				}
-				else if(tabIndex == 1)
+				else if(tabIndex == TAB_FILTERED)
 				{
 					auto make_list = [](std::string& str, ui::Text *texts[], int count) -> void {
 						str = texts[0]->get_text();
@@ -833,7 +840,7 @@ static bool show_normal_search()
 				if(R_SUCCEEDED(res))
 				{
 					/* we may need to post-process the regions */
-					if(tabIndex == 0)
+					if(tabIndex == TAB_QUICK)
 					{
 						if(!reg_other->checked()) /* include mode */
 							vec_erase_if<hsapi::PartialTitle>(titles, [&](const hsapi::PartialTitle& title) -> bool {
@@ -912,6 +919,25 @@ static bool show_normal_search()
 		OPT("Europe", &reg_eur, align_x(reg_usa))
 		OPT("Japan", &reg_jpn, align_x(reg_usa))
 		OPT(STRING(other), &reg_other, align_x(reg_usa))
+
+		switch(ctr::get_system_region())
+		{
+		case CFG_REGION_EUR:
+			reg_usa->set_checked(false);
+			reg_jpn->set_checked(false);
+			break;
+		case CFG_REGION_JPN:
+			reg_usa->set_checked(false);
+			reg_eur->set_checked(false);
+			break;
+		case CFG_REGION_USA:
+			reg_eur->set_checked(false);
+			reg_jpn->set_checked(false);
+			break;
+		default:
+			/* on the less common regions we just do nothing */
+			break;
+		}
 
 #undef OPT
 	/* setup for the filters tab */
@@ -1034,6 +1060,8 @@ void show_search()
 
 	std::string desc = set_desc(STRING(search_content));
 	bool focus = set_focus(true);
+
+	/* TODO: All of these should be merged inside 'normal search', currently only 'legacy search' is not included */
 
 	ui::RenderQueue queue;
 	ui::builder<ui::MenuSelect>(ui::Screen::bottom)

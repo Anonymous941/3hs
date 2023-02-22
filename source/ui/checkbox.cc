@@ -57,6 +57,15 @@ void ui::CheckBox::connect(connect_type t, std::function<void(bool)> cb)
 	this->on_change_cb = cb;
 }
 
+void ui::CheckBox::set_checked(bool c)
+{
+	u8 of = this->flags;
+	if(c) this->flags |=  ui::CheckBox::CHECKED;
+	else  this->flags &= ~ui::CheckBox::CHECKED;
+	if(this->flags != of)
+		this->on_change_cb(c);
+}
+
 bool ui::CheckBox::render(ui::Keys& keys)
 {
 	/* the checkbox may get pressed here */

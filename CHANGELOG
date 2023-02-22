@@ -6,6 +6,7 @@ v1.4.2 "aequaora viridia":
  - Fix issue where changing the 3hs theme would instantly crash
  - Fix issue where updating the base game would first delete itself
  - Improve performance by using binary api data
+ - Make quick search select only the console's region by default
  - General system stability improvements to enhance the user's experience
 
 v1.4.1 "aequaora viridia":
