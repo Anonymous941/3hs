@@ -661,3 +661,27 @@ UI_GLYPH_L/UI_GLYPH_R を押してモードを切り替えます
 # search menu option to open normal search
 - normal_search
 通常の検索
+﻿# Slides in screen when a new song is up
+#  %1 = song name
+- playing_x
+♪ ％1を再生しとります ♪
+
+
+
+
+# Slides in screen when a new song is up and it has artist metadata
+#  %1 = song name
+#  %2 = artist name
+- playing_x_by_y
+♪ ％1の％2を再生しとります ♪
+
+
+
+
+- outdated_system
+時代遅れのシステムファームウェアが検出されよった。 3hsを使用するには、少なくとも9.6.0のシステムファームウェアが必要やねん。
+
+
+# used as a subtext for display the virtual console type in extmeta, "Virtual Console" should probably be left untranslated, double capital (the V and C) is very important
+- virtual_console_type
+バーチャルコンソールのタイプ

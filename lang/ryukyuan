@@ -661,3 +661,23 @@ UI_GLYPH_L/UI_GLYPH_R うちモード切り替いやびーん
 # search menu option to open normal search
 - normal_search
 ふぃーじーぬ検索
+﻿# Slides in screen when a new song is up
+#  %1 = song name
+- playing_x
+♪ ％1再生そーいびーん ♪
+
+
+# Slides in screen when a new song is up and it has artist metadata
+#  %1 = song name
+#  %2 = artist name
+- playing_x_by_y
+♪ ％1ぬ％2再生そーいびーん ♪
+
+
+- outdated_system
+時代遅りぬシステムファームウェアぬ検出さりやびたん。 3hs使用すんがー、少なくとぅむ9.6.0ぬシステムファームウェアぬいりゆーやいびーん。
+
+
+# used as a subtext for display the virtual console type in extmeta, "Virtual Console" should probably be left untranslated, double capital (the V and C) is very important
+- virtual_console_type
+バーチャルコンソールぬタイプ
