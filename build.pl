@@ -71,7 +71,7 @@ sub configure {
 	my $dserv     = getconf "debug_server", "HS_DEBUG_SERVER";
 	my $upbase    = getconf "update_base", "HS_UPDATE_BASE";
 	my $cdnbase   = getconf "cdn_base", "HS_CDN_BASE";
-	my $siteloc   = getconf "website", "HS_WEBSITE";
+	my $siteloc   = getconf "site_url", "HS_WEBSITE";
 	my $nbloc     = getconf "nb_base", "HS_NB_BASE";
 
 	die "Must provide hShop server URLs, see the README"

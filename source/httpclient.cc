@@ -25,6 +25,10 @@
 
 #include "build/hscert_der.h"
 
+#ifdef RELEASE
+	#include <ui/base.hh>
+#endif
+
 #define TRYJ( expr ) if(R_FAILED(res = ( expr ))) goto fail
 #define HTTP_MAX_REDIRECT 10
 

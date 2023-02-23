@@ -173,6 +173,7 @@ int acfg_load(void)
 	/* no configuration; we use the default one */
 	if(access(ACONFIG_FILE, F_OK) != 0)
 	{
+default_settings:
 		acfg_write_file(default_acfg);
 		return ACE_NONE;
 	}
@@ -180,7 +181,11 @@ int acfg_load(void)
 	char *file = acfg_read_file(), *start, *endid, *vname, *ptr, *key, *next;
 	int len;
 	struct playlist *pl = NULL;
-	if(!file) { elog("failed to read configuration file"); return ACE_FILE_IO; }
+	if(!file)
+	{
+		elog("failed to read configuration file, using default settings");
+		goto default_settings;
+	}
 	for(ptr = file; *ptr; ++ptr)
 	{
 		if(pl)
