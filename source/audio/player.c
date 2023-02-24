@@ -257,7 +257,7 @@ static void player_prev_plist(struct cwav *currentFile, ndspWaveBuf buffers[2][2
 static void player_thread_entrypoint(void *arg)
 {
 	(void) arg;
-	int16_t *backingBuffer = (int16_t *) linearAlloc(4 * PLAYER_BUFFER_SIZE);
+	uint8_t *backingBuffer = (uint8_t *) linearAlloc(4 * PLAYER_BUFFER_SIZE);
 	ndspWaveBuf buffers[2][2];
 	struct cwav currentFile;
 	int audioCmd = ACMD_NONE;
@@ -408,7 +408,7 @@ Result player_init(void)
 
 	LightLock_Lock(&fireLock);
 
-	if(!(playerThread = threadCreate(player_thread_entrypoint, NULL, 64 * 1024, prio, -2, false)))
+	if(!(playerThread = threadCreate(player_thread_entrypoint, NULL, 64 * 1024, prio - 2, -2, false)))
 		return APPERR_OUT_OF_MEM;
 
 	playerCommand = CMD_INIT;

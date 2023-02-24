@@ -435,9 +435,8 @@ int acfg_save(void)
 	TRY(fb_write_string(&fb, gacfg.alwaysMono ? "yes\n" : "no\n"));
 
 	TRY(fb_write_string(&fb, "default_playlist = "));
-	if(gacfg.default_playlist_name) TRY(fb_write_string(&fb, gacfg.default_playlist_name));
-	else                            TRY(fb_write_string(&fb, "NULL"));
-	TRY(fb_write_string(&fb, "\n\n"));
+	TRY(fb_write_string(&fb, gacfg.default_playlist_name ? gacfg.default_playlist_name : "NULL"));
+	TRY(fb_write_char(&fb, '\n')); /* second newline is done by the loop */
 
 	for(int i = 0; i < gacfg.nplaylists; ++i)
 	{

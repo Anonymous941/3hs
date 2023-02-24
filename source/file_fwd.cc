@@ -14,11 +14,10 @@
  * this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#define PRIX64 "%lld" /* for some reason this isn't provided by inttypes.h ? */
-#include <nncpp/stream.hh>
-#include <nncpp/romfs.hh>
-#include <nncpp/ncch.hh>
-#include <nncpp/cia.hh>
+#include <nnc/stream.h>
+#include <nnc/romfs.h>
+#include <nnc/ncch.h>
+#include <nnc/cia.h>
 
 #include <sys/stat.h>
 #include <string.h>
@@ -40,94 +39,15 @@
  *     - the other file has a variable name found in config.ini
  */
 
-#define TRY(expr) if((res = ( expr )) != nnc::result::ok) goto fail
-
-static bool fully_buffer_stream(nnc::read_stream_like& stream, nnc::dynamic_array<char>& contents)
+static u8 *read_rs(nnc_rstream *rs, size_t *len)
 {
-	size_t len = stream.size();
+	*len = NNC_RS_PCALL0(rs, size);
 	u32 readSize;
-	if(!contents.allocate(len + 1))
-		return false;
-	contents.data()[len] = '\0';
-	return stream.read(contents.data(), len, readSize) == nnc::result::ok && readSize == len;
+	u8 *contents = (u8 *) malloc(*len + 1);
+	if(NNC_RS_PCALL(rs, read, contents, *len, &readSize) != NNC_R_OK || readSize != *len)
+	{ free(contents); return NULL; }
+	return contents;
 }
-
-static const char deststr[] = "destination=";
-static const size_t deststrlen = sizeof(deststr) - 1;
-static const char locstr[] = "location=";
-static const size_t locstrlen = sizeof(locstr) - 1;
-
-Result install_forwarder(u8 *data, size_t len)
-{
-	/* we don't have to initialize seeddb; 1) the 3ds platform has no standard seeddb location and 2) theme forwarders will never be seeded */
-	nnc::memory mem { data, len };
-
-	nnc::dynamic_array<char> file;
-	nnc::cia_content ncch0s;
-	nnc::cia_reader reader;
-	nnc::subview romfsfile;
-	nnc::romfs romfs;
-	nnc::result res;
-	nnc::ncch ncch0;
-	nnc::cia cia;
-
-	nnc_wfile wf = { nullptr, nullptr }; /* TODO: Move this to the C++ wrappers once possible */
-
-	char *dest, *src, *end, *slash;
-	std::string rdest;
-
-	TRY(cia.read(mem));
-	TRY(reader.initialize(cia));
-	TRY(reader.open(0, ncch0s));
-	TRY(ncch0.read(ncch0s));
-	TRY(ncch0.romfs_section(romfs));
-
-	TRY(romfs.open("/config.ini", romfsfile));
-	if(!fully_buffer_stream(romfsfile, file))
-		goto fail;
-
-	dest = strstr(file.data(), deststr);
-	if(!dest) goto fail;
-	dest += deststrlen;
-	end = strchr(dest, '\n');
-
-	src = strstr(file.data(), locstr);
-	if(!src) goto fail;
-	src += locstrlen;
-	/* we can only now terminate the dest end because else the previous strstr may fail */
-	if(end) *end = '\0';
-	end = strchr(src, '\n');
-	/* this one terminates the src end */
-	if(end) *end = '\0';
-
-	/* now we just have to copy the files around */
-	slash = *dest == '/' ? dest + 1 : dest;
-	rdest = strstr(dest, "sdmc:/") == dest ? dest : "sdmc:/" + std::string(slash);
-	/*  mkdirp(/Themes/file.txt)
-	 *   1. /Themes
-	 * */
-	while((slash = strchr(slash, '/')))
-	{
-		*slash = '\0';
-		mkdir(dest, 0777);
-		*slash = '/';
-		++slash;
-	}
-
-	TRY(romfs.open(src, romfsfile));
-	if(nnc_wfile_open(&wf, rdest.c_str()) != NNC_R_OK)
-		goto fail;
-	res = (nnc::result) nnc_copy(romfsfile.as_rstream(), (nnc_wstream *) &wf);
-
-out:
-	if(wf.funcs) wf.funcs->close((nnc_wstream *) &wf);
-	return res == nnc::result::ok ? 0 : APPERR_FILEFWD_FAIL;
-fail:
-	res = nnc::result::nomem; /* doesn't matter, not used anymore after this */
-	goto out;
-}
-
-#if 0
 
 /* prototyped in install.cc */
 Result install_forwarder(u8 *data, size_t len)
@@ -222,5 +142,4 @@ fail:
 	nnc_cia_free_reader(&reader);
 	return APPERR_FILEFWD_FAIL;
 }
-#endif
 

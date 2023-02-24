@@ -209,6 +209,7 @@ sub make_file_list {
 }
 
 sub execute_make {
+	print "Executing make for target '$target' ...\n";
 	system "make -f $build_dir/$target.target.mk -j$jobs " . join ' ', @ARGV;
 }
 
