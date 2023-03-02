@@ -432,8 +432,8 @@ Themas
 Verwijder ongebruikte tickets
 
 - found_unused_tickets +code(number)
-if(p1 == 1) return "%1 ongebruikte tickets gevonden. Wil je ze verwijderen?";
-else        return "%1 ongebruikt ticket gevonden. Wil je het verwijderen?";
+if(p1 == 1) return "%1 ongebruikt ticket gevonden. Wil je het verwijderen?";
+else        return "%1 ongebruikte tickets gevonden. Wil je ze verwijderen?"; /* ook correct for "0 ongebruikte tickets gevonden" */
 
 - found_no_unused_tickets
 Geen ongebruikte tickets gevonden.

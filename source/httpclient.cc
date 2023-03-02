@@ -37,6 +37,7 @@ extern "C" const int   hsapi_password_length;  /* hsapi_auth.c */
 extern "C" const char *hsapi_user;             /* hsapi_auth.c */
 
 static http::ResumableDownload *current_download = nullptr;
+static LightLock current_download_lock;
 
 void http::ResumableDownload::global_abort()
 {
@@ -51,6 +52,14 @@ http::ResumableDownload::ResumableDownload()
 {
 	this->buffer = malloc(http::ResumableDownload::ChunkMaxSize);
 	panic_assert(this->buffer, "failed to allocate for download buffer");
+
+	static bool lock_is_init = false;
+	if(!lock_is_init)
+	{
+		LightLock_Init(&current_download_lock);
+		lock_is_init = true;
+	}
+	LockedInScope slock { &current_download_lock };
 
 	if(current_download)
 	{
@@ -68,6 +77,8 @@ http::ResumableDownload::ResumableDownload()
 http::ResumableDownload::~ResumableDownload()
 {
 	free(this->buffer);
+
+	LockedInScope slock { &current_download_lock };
 
 	if(this->next) this->next->prev = this->prev;
 	if(this->prev) this->prev->next = this->next;

@@ -3,8 +3,10 @@ v1.4.2 "aequaora viridia":
  - Add a minimum system version requirement (that is, version 9.6.0)
  - Add information about the Virtual Console type in extended meta
  - Fix alphabetical sort taking the Virtual Console tag into account
- - Fix issue where changing the 3hs theme would instantly crash
+ - Fix issue where changing the 3hs theme would sometimes instantly crash
  - Fix issue where updating the base game would first delete itself
+ - Fix issue where theme images would be corrupted if music was first loaded
+ - Fix issue where 3hs would crash when multiple network requests were pending
  - Fix an immediate 3hs crash when the audio configuration file was empty
  - Improve performance by using binary api data
  - Make quick search select only the console's region by default
