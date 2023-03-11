@@ -78,7 +78,7 @@ hsapi::hcid next::sel_cat(size_t *cursor)
 	return ret;
 }
 
-hsapi::hcid next::sel_sub(hsapi::hcid cat_id, size_t *cursor, bool visited)
+hsapi::hcid next::sel_sub(hsapi::hcid cat_id, size_t *cursor)
 {
 	using list_t = ui::List<hsapi::Subcategory>;
 
@@ -117,7 +117,9 @@ hsapi::hcid next::sel_sub(hsapi::hcid cat_id, size_t *cursor, bool visited)
 		.x(5.0f).y(25.0f)
 		.add_to(&list, queue);
 
-	if(visited && cursor != nullptr) list->set_pos(*cursor);
+	if(cursor != nullptr)
+		list->set_pos(*cursor);
+
 	else if(ISET_GOTO_REGION)
 	{
 		const char *scname;

@@ -84,7 +84,7 @@ sub configure {
 	$cflags .= " -DDEVICE_ID=$devid" if $devid;
 	$cflags .= " -DHS_DEBUG_SERVER=\\\"$dserv\\\"" if $dserv;
 	$cflags .= " -DHS_UPDATE_BASE=\\\"$upbase\\\"" if $upbase;
-	$cflags .= " -DHS_NB_BASE=\\\"$upbase\\\"" if $nbloc;
+	$cflags .= " -DHS_NB_BASE=\\\"$nbloc\\\"" if $nbloc;
 	$cflags .= " -DHS_CDN_BASE=\\\"$cdnbase\\\"" if $cdnbase;
 	$cflags .= " -DHS_SITE_LOC=\\\"$siteloc\\\"" if $siteloc;
 

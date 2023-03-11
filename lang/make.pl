@@ -49,6 +49,7 @@ my @languages = qw(
 my @preserve_keywords = qw(
 	PAGE_3HS
 	PAGE_THEMES
+	PAGE_DONATE
 	UI_GLYPH_A
 	UI_GLYPH_B
 	UI_GLYPH_X
@@ -281,9 +282,11 @@ $source_file .= <<EOF;
 #ifndef HS_SITE_LOC
 	#define PAGE_3HS "(unset)"
 	#define PAGE_THEMES "(unset)"
+	#define PAGE_DONATE "(unset)"
 #else
 	#define PAGE_3HS HS_SITE_LOC "/3hs"
 	#define PAGE_THEMES HS_SITE_LOC "/wiki/theme-installation"
+	#define PAGE_DONATE HS_SITE_LOC "/donate"
 #endif
 
 #define STUB(id) [str::id] = lang_strtab[lang::english][str::id]

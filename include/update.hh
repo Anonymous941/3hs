@@ -25,8 +25,8 @@
 
 #define VERSION_MAJOR 1
 #define VERSION_MINOR 4
-#define VERSION_PATCH 1
-#define VERSION_DESC "aequora viridia" VERSION_SUFFIX
+#define VERSION_PATCH 4
+#define VERSION_DESC "fiat lux" VERSION_SUFFIX
 
 #define INT_TO_STR(i) INT_TO_STR_(i)
 #define INT_TO_STR_(i) #i

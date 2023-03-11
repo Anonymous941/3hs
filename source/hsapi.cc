@@ -32,12 +32,12 @@
 #define SOC_BUFFERSIZE  0x20000
 
 #if defined(HS_DEBUG_SERVER)
-	#define HS_NB_LOC   HS_DEBUG_SERVER ":5000/nbapi"
+	#define HS_NB_BASE  HS_DEBUG_SERVER ":5000/nbapi"
 	#define HS_CDN_BASE HS_DEBUG_SERVER ":5001"
 	#define HS_SITE_LOC HS_DEBUG_SERVER ":5002"
 #endif
-#if !defined(HS_CDN_BASE) || !defined(HS_SITE_LOC) || !defined(HS_UPDATE_BASE) || !defined(HS_NB_LOC)
-	#error "You must define HS_CDN_BASE, HS_SITE_LOC, HS_NB_LOC and HS_UPDATE_BASE"
+#if !defined(HS_CDN_BASE) || !defined(HS_SITE_LOC) || !defined(HS_UPDATE_BASE) || !defined(HS_NB_BASE)
+	#error "You must define HS_CDN_BASE, HS_SITE_LOC, HS_NB_BASE and HS_UPDATE_BASE"
 #endif
 
 #define OK 0
@@ -216,7 +216,7 @@ static hsapi::Index& hindex()
 
 Result hsapi::fetch_index()
 {
-	Result res = nbreq<hsapi::Index>(HS_NB_LOC "/title-index", g_index);
+	Result res = nbreq<hsapi::Index>(HS_NB_BASE "/title-index", g_index);
 #if !RELEASE
 	if(R_SUCCEEDED(res))
 		g_indexloaded = true;
@@ -263,25 +263,25 @@ hsapi::IndexMeta& hsapi::imeta() { return hindex().meta; }
 Result hsapi::titles_in(std::vector<hsapi::PartialTitle>& ret, const hsapi::IndexCategory& cat, const hsapi::IndexSubcategory& scat)
 {
 	ilog("Listing titles in subcategory");
-	return nbreqa<hsapi::PartialTitle>(HS_NB_LOC "/title/category/" + cat.name + "/" + scat.name, ret);
+	return nbreqa<hsapi::PartialTitle>(HS_NB_BASE "/title/category/" + cat.name + "/" + scat.name, ret);
 }
 
 Result hsapi::title_meta(hsapi::Title& ret, hsapi::hid id)
 {
 	ilog("Transforming PartialTitle into Title");
-	return nbreq<hsapi::Title>(HS_NB_LOC "/title/" + std::to_string(id), ret);
+	return nbreq<hsapi::Title>(HS_NB_BASE "/title/" + std::to_string(id), ret);
 }
 
 Result hsapi::search(std::vector<hsapi::PartialTitle>& ret, const std::unordered_map<std::string, std::string>& params)
 {
 	ilog("Performing search action");
-	return nbreqa<hsapi::PartialTitle>(make_query_string_url(HS_NB_LOC "/title/search", params), ret);
+	return nbreqa<hsapi::PartialTitle>(make_query_string_url(HS_NB_BASE "/title/search", params), ret);
 }
 
 Result hsapi::random(hsapi::Title& ret)
 {
 	ilog("Getting random title");
-	return nbreq<hsapi::Title>(HS_NB_LOC "/title/random", ret);
+	return nbreq<hsapi::Title>(HS_NB_BASE "/title/random", ret);
 }
 
 Result hsapi::batch_related(std::vector<hsapi::Title>& ret, const std::vector<hsapi::htid>& tids)
@@ -290,7 +290,7 @@ Result hsapi::batch_related(std::vector<hsapi::Title>& ret, const std::vector<hs
 	if(tids.size() == 0)
 		return OK;
 
-	std::string url = HS_NB_LOC "/title/related/batch?title_ids=" + ctr::tid_to_str(tids[0]);
+	std::string url = HS_NB_BASE "/title/related/batch?title_ids=" + ctr::tid_to_str(tids[0]);
 	url.reserve((tids.size() - 1) * (16 + 1));
 	for(size_t i = 1; i < tids.size(); ++i)
 		url += "," + ctr::tid_to_str(tids[i]);
@@ -301,7 +301,7 @@ Result hsapi::batch_related(std::vector<hsapi::Title>& ret, const std::vector<hs
 Result hsapi::get_by_title_id(std::vector<hsapi::Title>& ret, const std::string& title_id)
 {
 	ilog("Getting hshop title by title id");
-	return nbreqa<hsapi::Title>(HS_NB_LOC "/title/id/" + title_id, ret);
+	return nbreqa<hsapi::Title>(HS_NB_BASE "/title/id/" + title_id, ret);
 }
 
 /* 1}}} */
@@ -332,7 +332,7 @@ Result hsapi::get_latest_version_string(std::string& ret)
 Result hsapi::get_theme_preview_png(std::string& ret, hsapi::hid id)
 {
 	ilog("Getting theme preview");
-	Result res = basereq(HS_NB_LOC "/title/" + std::to_string(id) + "/theme-preview", ret);
+	Result res = basereq(HS_NB_BASE "/title/" + std::to_string(id) + "/theme-preview", ret);
 	if(R_FAILED(res)) return res;
 	nb::Result nres;
 	if(nb::parse_full<nb::Result>(nres, (u8 *) ret.c_str(), ret.size()) == nb::StatusCode::SUCCESS)

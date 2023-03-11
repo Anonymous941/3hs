@@ -798,7 +798,8 @@ UI_GLYPH_X: 預覽主題
 # search menu option to open normal search
 - normal_search
 正常搜索
-﻿# Slides in screen when a new song is up
+
+# Slides in screen when a new song is up
 #  %1 = song name
 - playing_x
 ♪ 正在播放 ％1 ♪

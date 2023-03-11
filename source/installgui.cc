@@ -39,11 +39,23 @@ static ui::slot_color_getter slotmgr_getters[] = {
 static ui::SlotManager slotmgr;
 
 
-static void make_queue(ui::RenderQueue& queue, ui::ProgressBar **bar, const std::string& label)
+void make_render_queue(ui::RenderQueue& queue, ui::ProgressBar **bar, const std::string& label)
 {
+	/* now the donate message, goes under the progress bar */
+	ui::Text *donate;
+	ui::builder<ui::Text>(ui::progloc(), STRING(do_donate))
+		.size(0.42f)
+		.x(ui::layout::center_x)
+		.wrap()
+		.add_to(&donate, queue);
+
 	ui::builder<ui::ProgressBar>(ui::progloc())
 		.y(ui::layout::center_y)
 		.add_to(bar, queue);
+
+	float center_above_progbar = (queue.back()->get_y() - donate->height()) / 2.0f;
+	donate->set_y(center_above_progbar + 10.0f);
+
 	if(label.size())
 	{
 		ui::builder<ui::Text>(ui::progloc() == ui::Screen::top ? ui::Screen::bottom : ui::Screen::top, label)
@@ -61,6 +73,7 @@ static void make_queue(ui::RenderQueue& queue, ui::ProgressBar **bar, const std:
 			.z(ui::layer::middle)
 			.add_to(queue);
 	}
+
 	queue.render_frame();
 }
 
@@ -108,7 +121,7 @@ Result install::gui::net_cia(const std::string& url, u64 tid, bool interactive, 
 	ui::ProgressBar *bar;
 	ui::RenderQueue queue;
 
-	make_queue(queue, &bar, "");
+	make_render_queue(queue, &bar, "");
 
 	bool shouldReinstall = defaultReinstallable;
 	Result res = 0;
@@ -150,7 +163,7 @@ Result install::gui::hs_cia(const hsapi::Title& meta, bool interactive, bool def
 	ui::ProgressBar *bar;
 	ui::RenderQueue queue;
 
-	make_queue(queue, &bar, label.size() ? label : meta.name);
+	make_render_queue(queue, &bar, label.size() ? label : meta.name);
 
 	bool shouldReinstall = defaultReinstallable;
 	Result res = 0;

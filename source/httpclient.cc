@@ -59,7 +59,7 @@ http::ResumableDownload::ResumableDownload()
 		LightLock_Init(&current_download_lock);
 		lock_is_init = true;
 	}
-	LockedInScope slock { &current_download_lock };
+	ctr::LockedInScope slock { &current_download_lock };
 
 	if(current_download)
 	{
@@ -78,7 +78,7 @@ http::ResumableDownload::~ResumableDownload()
 {
 	free(this->buffer);
 
-	LockedInScope slock { &current_download_lock };
+	ctr::LockedInScope slock { &current_download_lock };
 
 	if(this->next) this->next->prev = this->prev;
 	if(this->prev) this->prev->next = this->next;

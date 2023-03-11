@@ -524,6 +524,7 @@ namespace nb /* nbType */
 			this->tid = sthdr->tid;
 			this->size = sthdr->size;
 			this->flags = sthdr->flags;
+			this->dlCount = sthdr->dlCount;
 			this->id = sthdr->id;
 			this->version = sthdr->version;
 			this->contentType = sthdr->contentType;

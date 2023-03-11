@@ -1,5 +1,10 @@
 
-v1.4.2 "aequaora viridia":
+v1.4.4 "fiat lux":
+ - Fix issue where cursor position would not be preserved in various situations
+ - Fix issue where the incorrect subcategory contents would be loaded
+ - General system stability improvements to enhance the user's experience
+
+v1.4.3 "aequaora viridia":
  - Add a minimum system version requirement (that is, version 9.6.0)
  - Add information about the Virtual Console type in extended meta
  - Fix alphabetical sort taking the Virtual Console tag into account
@@ -11,6 +16,8 @@ v1.4.2 "aequaora viridia":
  - Improve performance by using binary api data
  - Make quick search select only the console's region by default
  - General system stability improvements to enhance the user's experience
+
+(v1.4.2 never happened)
 
 v1.4.1 "aequaora viridia":
  - Fix issue where closing the lid while in the timeout screen would pause the download

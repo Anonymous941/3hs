@@ -114,7 +114,7 @@ class TipGiver : public ui::BaseWidget
 public:
 	void setup()
 	{
-		this->frames_until_tip = 100;
+		this->frames_until_tip = this->initial_frames_until_tip();
 	}
 
 	float height() override { return 0.0f; }
@@ -125,21 +125,40 @@ public:
 		/* don't advance if we're already using the status or installing a game */
 		if(install::is_in_progress() || status_running() || !this->frames_until_tip)
 			return true;
+
 		--this->frames_until_tip;
 		if(!this->frames_until_tip)
 		{
-			this->frames_until_tip = ~0;
-			set_ticker("Some useful tip");
+			this->frames_until_tip = this->next_frames_until_tip();
+			set_ticker(this->select_string());
 		}
 		return true;
 	}
 
 private:
+	/* frames_to_seconds = frames => frames * 60 */
+	/* seconds_to_frames = secs => secs / 60 */
+	unsigned initial_frames_until_tip()
+	{
+		return 30;
+	}
+
+	unsigned next_frames_until_tip()
+	{
+		return ~0;
+	}
+
+	const char *select_string()
+	{
+		return STRING(do_donate);
+	}
+
 	unsigned frames_until_tip;
 
 };
 #endif
 
+void make_render_queue(ui::RenderQueue& queue, ui::ProgressBar **bar, const std::string& label);
 
 int main(int argc, char* argv[])
 {
@@ -352,6 +371,7 @@ int main(int argc, char* argv[])
 	}
 #endif
 	// end DRM Check
+	//
 
 	/* initialize audio subsystem */
 	panic_assert(R_SUCCEEDED(player_init()), "failed to initialize audio system");
@@ -411,13 +431,17 @@ cat:
 		// User wants to exit app
 		if(cat == next_cat_exit) break;
 		ilog("NEXT(c): %s", hsapi::category(cat).name.c_str());
-
-sub:
-		visited_sub = associatedcat == cat;
-		if(!visited_sub) subptr = 0;
+		/* we need to reset this since we've changed categories, meaning 
+		 * the subcategory data is invalid */
+		if(cat != associatedcat)
+		{
+			associatedsub = -1;
+			subptr = 0;
+		}
 		associatedcat = cat;
 
-		hsapi::hcid sub = next::sel_sub(cat, &subptr, visited_sub);
+sub:
+		hsapi::hcid sub = next::sel_sub(cat, &subptr);
 		if(sub == next_sub_back) goto cat;
 		if(sub == next_sub_exit) break;
 		ilog("NEXT(s): %s", hsapi::subcategory(cat, sub).name.c_str());
@@ -430,16 +454,17 @@ sub:
 			visited_gam = false;
 			if(R_FAILED(hsapi::call(hsapi::titles_in, titles, cato, subo)))
 				goto sub;
-			associatedsub = sub;
 		}
-		/* if we are re-entering the subcategory we don't have to resort, which
-		 * this variable controls */
 		else visited_gam = true;
+		associatedsub = sub;
 
 gam:
 		hsapi::hid id = next::sel_gam(titles, &grdata, visited_gam);
 		if(id == next_gam_back) goto sub;
 		if(id == next_gam_exit) break;
+		/* this means we've been in the category before,
+		 * this will get set to false if we re-enter */
+		visited_gam = true;
 
 		ilog("NEXT(g): %lli", id);
 
