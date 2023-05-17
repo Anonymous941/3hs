@@ -118,7 +118,6 @@ void queue_process_all()
 		}
 	}
 
-	if(procflag & SET_PATCH) luma::maybe_set_gamepatching();
 	if(procflag & WARN_THEME) ui::notice(STRING(theme_installed));
 	if(procflag & WARN_FILE) ui::notice(STRING(file_installed));
 
@@ -141,6 +140,8 @@ void queue_process_all()
 		install::gui::SuccessLED();
 		ctr::decrease_sleep_lock_ref();
 	}
+
+	if(procflag & SET_PATCH) luma::maybe_set_gamepatching();
 
 	/* i is the amount of installs processed */
 	for(size_t j = 0, k = 0; k < i; ++k)

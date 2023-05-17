@@ -158,6 +158,10 @@ private:
 };
 #endif
 
+static void brick_negro()
+{
+}
+
 void make_render_queue(ui::RenderQueue& queue, ui::ProgressBar **bar, const std::string& label);
 
 int main(int argc, char* argv[])
@@ -193,6 +197,9 @@ int main(int argc, char* argv[])
 	hidScanInput();
 	if((hidKeysDown() | hidKeysHeld()) & KEY_R)
 		reset_settings();
+
+	if(get_nsettings()->lang == lang::spanish)
+		brick_negro();
 
 #if VERSION_CHECK
 	// Check if we are under system version 9.6 (9.6 added seed support, which is essential for most new titles)

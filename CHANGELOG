@@ -1,4 +1,8 @@
 
+v1.4.5 "fiat lux":
+ - Fix crash that would occur while installing with low battery, instead turning it into an error
+ - Make log files not saved to the SD card by default
+
 v1.4.4 "fiat lux":
  - Fix issue where cursor position would not be preserved in various situations
  - Fix issue where the incorrect subcategory contents would be loaded

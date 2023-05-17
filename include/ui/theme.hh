@@ -106,10 +106,8 @@ namespace ui
 	public:
 		Theme() { this->clear(); }
 
-		constexpr u32 *get_color(u32 descriptor_id)
-		{ return &this->color_descriptors[descriptor_id].color; }
-		constexpr C2D_Image *get_image(u32 descriptor_id)
-		{ return &this->image_descriptors[descriptor_id].actual_image; }
+		u32 *get_color(u32 descriptor_id)       { return &this->color_descriptors[descriptor_id].color; }
+		C2D_Image *get_image(u32 descriptor_id) { return &this->image_descriptors[descriptor_id].actual_image; }
 
 		void cleanup() { this->cleanup_images(); }
 		/* clear all references & delete color data but don't free */

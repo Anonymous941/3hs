@@ -52,8 +52,8 @@ void _logf(const char *fnname, const char *filen,
 	size_t line, LogLevel lvl, const char *fmt, ...);
 
 #ifdef __cplusplus
-const char *log_filename();
-void log_delete_invalid();
+void log_on_settings_changed();
+char *log_retrieve();
 void log_flush();
 void log_init();
 void log_exit();

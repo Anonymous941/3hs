@@ -50,6 +50,7 @@ enum migrations {
 	migration_latency_graph     = 3,
 	migration_goto_region       = 4,
 	migration_rev_reinstall     = 5,
+	migration_enable_mem_log    = 6,
 
 	migration_meta_last,
 };
@@ -185,7 +186,7 @@ void reset_settings(bool set_default_lang)
 	                   | FLAG0_SEARCH_ECONTENT            | FLAG0_WARN_NO_BASE
 	                   | FLAG0_ALLOW_LED;
 
-	g_nsettings.max_elogs = 3;
+	g_nsettings.max_elogs = 0;
 	g_nsettings.theme_path = SPECIAL_LIGHT;
 	g_nsettings.proxy_port = 0; /* disable proxy by default */
 	g_nsettings.migration = LATEST_MIGRATION;
@@ -206,6 +207,8 @@ static void apply_migrations()
 		g_nsettings.flags0 |= FLAG0_GOTO_REGION;
 	if(g_nsettings.migration < migration_rev_reinstall)
 		g_nsettings.flags0 &= ~FLAG0_DEFAULT_REINSTALL;
+	if(g_nsettings.migration < migration_enable_mem_log)
+		g_nsettings.max_elogs = 0;
 	/* in the future more migrations may be written here */
 	g_nsettings.migration = LATEST_MIGRATION;
 	write_settings();
@@ -913,6 +916,7 @@ void show_settings()
 	using list_t = ui::List<SettingInfo>;
 
 	bool focus = set_focus(true);
+	bool dirty = false;
 
 	SettingsId current_setting = settingsInfo[0].ID;
 	ui::RenderQueue queue;
@@ -933,15 +937,16 @@ void show_settings()
 		.hide()
 		.add_to(&value, queue);
 	ui::builder<ui::Toggle>(ui::Screen::bottom, serialize_id_bool(settingsInfo[0].ID),
-			[&current_setting]() -> void { update_settings_ID(current_setting); })
+			[&current_setting, &dirty]() -> void { update_settings_ID(current_setting); dirty = true; })
 		.x(10.0f)
 		.under(desc, 5.0f)
 		.add_to(&toggle, queue);
 
 	ui::builder<list_t>(ui::Screen::top, &settingsInfo)
 		.connect(list_t::to_string, [](const SettingInfo& entry) -> std::string { return entry.name; })
-		.connect(list_t::select, [value, toggle](list_t *self, size_t i, u32 kDown) -> bool {
+		.connect(list_t::select, [value, toggle, &dirty](list_t *self, size_t i, u32 kDown) -> bool {
 			(void) kDown;
+			dirty = true;
 			ui::RenderQueue::global()->render_and_then([self, i, value, toggle]() -> void {
 				const SettingInfo& set = self->at(i);
 				update_settings_ID(set.ID);
@@ -983,8 +988,11 @@ void show_settings()
 	queue.render_finite_button(KEY_B);
 	set_focus(focus);
 
-	log_delete_invalid();
-	write_settings();
+	if(dirty)
+	{
+		log_on_settings_changed();
+		write_settings();
+	}
 }
 
 #include "build/light_hstx.h"

@@ -39,6 +39,17 @@ extern "C" const char *hsapi_user;             /* hsapi_auth.c */
 static http::ResumableDownload *current_download = nullptr;
 static LightLock current_download_lock;
 
+static bool battery_is_critical()
+{
+	u8 level, state;
+	PTMU_GetBatteryChargeState(&state);
+	/* if we're charging we're not in critical condition */
+	if(state) return false;
+	PTMU_GetBatteryLevel(&level);
+	/* i.e. critical for 5~0% */
+	return level <= 1;
+}
+
 void http::ResumableDownload::global_abort()
 {
 	for(http::ResumableDownload *dl = current_download; dl; dl = dl->next)
@@ -108,6 +119,9 @@ Result http::ResumableDownload::perform_execute_once(const char *url, int redire
 	size_t chunk_size;
 	Result res = 0, nres;
 	u32 status;
+
+	if(battery_is_critical())
+		return APPERR_CRITICAL_BAT;
 
 	if(R_FAILED(res = this->setup_handle(url)))
 		return res;
@@ -182,6 +196,11 @@ Result http::ResumableDownload::perform_execute_once(const char *url, int redire
 	panic_assert(this->buffer, "buffer should be allocated");
 
 	do {
+		if(battery_is_critical())
+		{
+			res = APPERR_CRITICAL_BAT;
+			goto fail;
+		}
 		if(this->flags & http::ResumableDownload::flag_exit) goto cancel;
 		res = httpcReceiveDataTimeout(&this->hctx, (u8 *) this->buffer, http::ResumableDownload::ChunkMaxSize, this->timeout);
 		if(this->flags & http::ResumableDownload::flag_exit) goto cancel;

@@ -45,6 +45,10 @@ my $libraries = "-lmbedcrypto";
 # Define to 1 if this project contains C++ files, otherwise 0
 my $cpp_project = 1;
 
+# Defines the C++ and C versions used to build
+my $cpp_version = "gnu++11";
+my $c_version   = "gnu11";
+
 # Always "arm-none-eabi-" for 3DS projects
 my $compiler_prefix = "arm-none-eabi-";
 
@@ -304,8 +308,8 @@ SOURCE_FLAGS := \\
 	$include_flags \\
 	-D__3DS__ -D_3DS
 
-CXXFLAGS += \$(SOURCE_FLAGS) -fno-rtti -fno-exceptions
-CFLAGS += \$(SOURCE_FLAGS)
+CXXFLAGS += \$(SOURCE_FLAGS) -fno-rtti -fno-exceptions -std=$cpp_version
+CFLAGS += \$(SOURCE_FLAGS) -std=$c_version
 
 LDFLAGS += \$(SYSFLAGS) -specs=3dsx.specs
 ASFLAGS += \$(SYSFLAGS)

@@ -30,27 +30,17 @@
 static bool upload_logs()
 {
 	log_flush();
-	FILE *f = fopen(log_filename(), "r");
-	if(!f)
-	{
-		elog("failed to open log: %s", strerror(errno));
-		return true;
-	}
-	fseek(f, 0, SEEK_END);
-	u32 size = ftell(f);
-	fseek(f, 0, SEEK_SET);
-	char *data = (char *) malloc(size);
-	int rsize = fread(data, 1, size, f);
-	fclose(f);
-	if(rsize <= 0)
-	{
-		elog("failed to read log: %s", strerror(errno));
-		free(data);
-		return true;
-	}
+	char *data = log_retrieve();
 	std::string id;
-	Result res = hsapi::call(hsapi::upload_log, (const char *) data, (u32) rsize, id);
-	free(data);
+	Result res;
+
+	if(data)
+	{
+		res = hsapi::call(hsapi::upload_log, (const char *) data, (u32) strlen(data), id);
+		free(data);
+	}
+	else res = APPERR_OUT_OF_MEM;
+
 	if(R_FAILED(res))
 	{
 		error_container err = get_error(res);
