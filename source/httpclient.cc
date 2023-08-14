@@ -15,6 +15,7 @@
  */
 
 #include "httpclient.hh"
+#include "settings.hh"
 #include "update.hh" /* includes net constants like USER_AGENT */
 #include "proxy.hh"
 #include "error.hh"
@@ -22,12 +23,15 @@
 #include "log.hh"
 #include "ctr.hh"
 #include <string.h>
+#include <unistd.h>
 
 #include "build/hscert_der.h"
 
 #ifdef RELEASE
 	#include <ui/base.hh>
 #endif
+
+#define MIN(a,b) ((a)<(b)?(a):(b))
 
 #define TRYJ( expr ) if(R_FAILED(res = ( expr ))) goto fail
 #define HTTP_MAX_REDIRECT 10
@@ -50,13 +54,24 @@ static bool battery_is_critical()
 	return level <= 1;
 }
 
+static const char *method_string_from_enum(HTTPC_RequestMethod method)
+{
+	switch(method)
+	{
+	case HTTPC_METHOD_GET: return "GET";
+	case HTTPC_METHOD_POST: return "POST";
+	case HTTPC_METHOD_HEAD: return "HEAD";
+	case HTTPC_METHOD_PUT: return "PUT";
+	case HTTPC_METHOD_DELETE: return "DELETE";
+	}
+	return "<unknown>";
+}
+
 void http::ResumableDownload::global_abort()
 {
 	for(http::ResumableDownload *dl = current_download; dl; dl = dl->next)
-	{
-		dl->abort();
-		dl->close_handle();
-	}
+		dl->abort_and_close();
+	ResumableDownload::backend_global_deinit();
 }
 
 http::ResumableDownload::ResumableDownload()
@@ -99,18 +114,46 @@ http::ResumableDownload::~ResumableDownload()
 		current_download = this->next;
 	}
 
+	this->abort_and_close();
+}
+
+void http::ResumableDownload::abort_and_close()
+{
+	if(!this->in_progress())
+		return;
 	this->abort();
+	while(this->in_progress())
+		usleep(100000); /* 0.1 second */
 	this->close_handle();
 }
 
+void http::ResumableDownload::notify()
+{
+	if(this->notify_event)
+		LightEvent_Signal(this->notify_event);
+}
+
+Result http::ResumableDownload::execute_once()
+{
+	/* at this point we cannot execute anymore */
+	if(this->flags & http::ResumableDownload::flag_exit)
+		return APPERR_CANCELLED;
+
+	/* we require the sleep lock for downloads and such, lets just ensure it's available */
+	Result res = ctr::increase_sleep_lock_ref();
+	if(R_FAILED(res)) elog("failed to acquire sleep lock: %08lX", res);
+	vlog("Trying to download URL '%s'...", this->url.c_str());
+	res = this->perform_execute_once(this->url.c_str(), 0);
+	ctr::decrease_sleep_lock_ref();
+	return res;
+}
+
+#if HTTP_BACKEND == HTTP_BACKEND_HTTPC
 void http::ResumableDownload::close_handle()
 {
-	if(this->flags & http::ResumableDownload::flag_active)
-	{
-		if(!(this->flags & http::ResumableDownload::flag_exit))
-			httpcCancelConnection(&this->hctx);
-		httpcCloseContext(&this->hctx);
-	}
+	if(!(this->flags & http::ResumableDownload::flag_exit))
+		httpcCancelConnection(&this->hctx);
+	httpcCloseContext(&this->hctx);
 }
 
 Result http::ResumableDownload::perform_execute_once(const char *url, int redirection_depth)
@@ -129,20 +172,7 @@ Result http::ResumableDownload::perform_execute_once(const char *url, int redire
 	TRYJ(httpcBeginRequest(&this->hctx));
 	TRYJ(httpcGetResponseStatusCodeTimeout(&this->hctx, &status, this->timeout));
 
-#ifdef FULL_LOG
-	{
-		const char *mstr = nullptr;
-		switch(this->method)
-		{
-		case HTTPC_METHOD_GET: mstr = "GET"; break;
-		case HTTPC_METHOD_POST: mstr = "POST"; break;
-		case HTTPC_METHOD_HEAD: mstr = "HEAD"; break;
-		case HTTPC_METHOD_PUT: mstr = "PUT"; break;
-		case HTTPC_METHOD_DELETE: mstr = "DELETE"; break;
-		}
-		vlog("Status code on URL %s '%s' is %ld.", mstr, url, status);
-	}
-#endif
+	vlog("Status code on URL %s '%s' is %ld.", method_string_from_enum(this->method), url, status);
 
 	/* we may need to redirect (status code 3xx) */
 	if(status / 100 == 3)
@@ -184,13 +214,13 @@ Result http::ResumableDownload::perform_execute_once(const char *url, int redire
 		goto fail;
 	}
 
-	if(this->downloadedSize == 0)
+	if(!(this->flags & http::ResumableDownload::flag_size))
 	{
 		TRYJ(httpcGetDownloadSizeState(&this->hctx, nullptr, &this->totalSize));
 		if(R_FAILED(res = this->on_total_size_try_get_()))
 			goto fail;
-		if(this->notify_event)
-			LightEvent_Signal(this->notify_event);
+		this->notify();
+		this->flags |= http::ResumableDownload::flag_size;
 	}
 
 	panic_assert(this->buffer, "buffer should be allocated");
@@ -219,14 +249,12 @@ Result http::ResumableDownload::perform_execute_once(const char *url, int redire
 		/* we can't just assign res = nres becaues res may be either
 		 * HTTPC_RESULTCODE_DOWNLOADPENDING or 0, which we can't discard */
 		if(R_FAILED(nres)) res = nres;
-		if(this->notify_event)
-			LightEvent_Signal(this->notify_event);
+		this->notify();
 		this->downloadedSize += chunk_size;
 		prev_pos = pos;
 	} while(res == (Result) HTTPC_RESULTCODE_DOWNLOADPENDING);
 
-	if(res == 0 && this->notify_event)
-		LightEvent_Signal(this->notify_event);
+	if(res == 0) this->notify();
 
 fail:
 	this->close_handle();
@@ -237,24 +265,14 @@ cancel:
 	goto fail;
 }
 
-Result http::ResumableDownload::execute_once()
-{
-	/* we require the sleep lock for downloads and such, lets just ensure it's available */
-	Result res = ctr::increase_sleep_lock_ref();
-	if(R_FAILED(res)) elog("failed to acquire sleep lock: %08lX", res);
-	vlog("Trying to download URL '%s'...", this->url.c_str());
-	res = this->perform_execute_once(this->url.c_str(), 0);
-	ctr::decrease_sleep_lock_ref();
-	return res;
-}
-
 Result http::ResumableDownload::setup_handle(const char *url)
 {
 	char *password;
 	Result res;
 
 	/* the last argument is use_default_proxy, we don't want that since we set it ourselves later */
-	TRYJ(httpcOpenContext(&this->hctx, this->method, url, 0));
+	if(R_FAILED(res = httpcOpenContext(&this->hctx, this->method, url, 0)))
+		return res;
 	if(hscert_der_bin_size && strncmp(url, "https:", 6) == 0)
 		TRYJ(httpcAddTrustedRootCA(&this->hctx, hscert_der_bin, hscert_der_bin_size));
 	TRYJ(httpcSetSSLOpt(&this->hctx, SSLCOPT_DisableVerify));
@@ -287,4 +305,198 @@ void http::ResumableDownload::abort()
 	if(this->flags & http::ResumableDownload::flag_active)
 		httpcCancelConnection(&this->hctx);
 }
+
+Result http::ResumableDownload::global_init()
+{
+	/* initialize with 1MiB of memory */
+	return httpcInit(1024 * 1024);
+}
+
+void http::ResumableDownload::backend_global_deinit()
+{
+	httpcExit();
+}
+
+#elif HTTP_BACKEND == HTTP_BACKEND_CURL
+bool http::ResumableDownload::append_header(const char *key, const char *value)
+{
+	return this->append_header((std::string(key) + ": " + value).c_str());
+}
+
+bool http::ResumableDownload::append_header(const char *line)
+{
+	struct curl_slist *nsl = curl_slist_append(this->headers, line);
+	if(!nsl) return false;
+	this->headers = nsl;
+	return true;
+}
+
+void http::ResumableDownload::close_handle()
+{
+	curl_easy_cleanup(this->handle);
+	curl_slist_free_all(this->headers);
+}
+
+size_t http::ResumableDownload::http_curl_write_callback(char *ptr, size_t size, size_t nmemb, void *userdata)
+{
+	panic_assert(size == 1, "inval");
+	size = nmemb;
+
+	http::ResumableDownload *download = (http::ResumableDownload *) userdata;
+	while(size)
+	{
+		u32 current_fill  = download->downloadedSize % http::ResumableDownload::ChunkMaxSize;
+		u32 left_in_chunk = http::ResumableDownload::ChunkMaxSize - current_fill;
+		u32 to_copy = MIN(size, left_in_chunk);
+		memcpy(&((u8 *) download->buffer)[current_fill], ptr, to_copy);
+
+		/* We have a block */
+		if(current_fill + to_copy == http::ResumableDownload::ChunkMaxSize)
+		{
+			download->last_result = download->on_chunk_(http::ResumableDownload::ChunkMaxSize);
+		}
+
+		download->downloadedSize += to_copy;
+		ptr += to_copy;
+		size -= to_copy;
+
+		/* Signal because download->downloadedSize updated */
+		download->notify();
+		if(download->last_result != 0)
+			return 0;
+	}
+
+	return nmemb;
+}
+
+int http::ResumableDownload::http_curl_progress_callback(void *clientp, curl_off_t dltotal, curl_off_t dlnow, curl_off_t ultotal, curl_off_t ulnow)
+{
+	(void) ulnow;
+	(void) ultotal;
+	(void) dlnow;
+
+	http::ResumableDownload *download = (http::ResumableDownload *) clientp;
+	if(!(download->flags & http::ResumableDownload::flag_size))
+	{
+		download->totalSize = dltotal;
+		if(R_FAILED(download->last_result = download->on_total_size_try_get_()))
+			return 1;
+		download->notify();
+		download->flags |= http::ResumableDownload::flag_size;
+	}
+
+	return download->flags & http::ResumableDownload::flag_exit;
+}
+
+Result http::ResumableDownload::perform_execute_once(const char *url, int redirection_depth)
+{
+	Result res;
+
+	if(battery_is_critical())
+		return APPERR_CRITICAL_BAT;
+
+	if(R_FAILED(res = this->setup_handle(url)))
+		return res;
+
+	CURLcode cres = curl_easy_perform(this->handle);
+
+	dlog("Completed execute_once, last_result = 0x%08lX", this->last_result);
+
+	if(this->last_result == 0 && cres != CURLE_OK)
+		this->last_result = APPERR_FAILED_CURL;
+	if(this->last_result == 0)
+	{
+		u32 current_fill = this->downloadedSize % http::ResumableDownload::ChunkMaxSize;
+		/* Write the last chunk */
+		if(current_fill)
+			this->on_chunk_(current_fill);
+		this->notify();
+	}
+
+	this->close_handle();
+	this->flags &= ~(http::ResumableDownload::flag_active | http::ResumableDownload::flag_exit);
+	return this->last_result;
+}
+
+Result http::ResumableDownload::setup_handle(const char *url)
+{
+	this->handle = curl_easy_init();
+	if(!this->handle) return APPERR_FAILED_CURL;
+
+	if(!this->append_header("User-Agent: " USER_AGENT))
+		goto fail;
+
+	curl_easy_setopt(this->handle, CURLOPT_URL, url);
+	/* We need to add a POST body */
+	if(this->method == HTTPC_METHOD_POST)
+	{
+		panic_assert(this->postdataPtr && this->postdataLen, "must provide postdata ptr and len for POST request");
+		curl_easy_setopt(this->handle, CURLOPT_POSTFIELDSIZE, this->postdataLen);
+		curl_easy_setopt(this->handle, CURLOPT_POSTFIELDS, this->postdataPtr);
+		curl_easy_setopt(this->handle, CURLOPT_POST, 1L);
+	}
+	/* For anything that's not GET otherwise we need to
+	 * set it, GET is default and therefore no extra work required */
+	else if(this->method != HTTPC_METHOD_GET)
+	{
+		curl_easy_setopt(this->handle, CURLOPT_CUSTOMREQUEST, method_string_from_enum(this->method));
+	}
+
+	curl_easy_setopt(this->handle, CURLOPT_TIMEOUT, this->timeout / 1000000000L);
+	curl_easy_setopt(this->handle, CURLOPT_SSL_VERIFYPEER, 0L);
+	curl_easy_setopt(this->handle, CURLOPT_SSL_VERIFYHOST, 0L);
+	curl_easy_setopt(this->handle, CURLOPT_MAXREDIRS, 5L);
+	curl_easy_setopt(this->handle, CURLOPT_NOPROGRESS, 0L);
+
+	curl_easy_setopt(this->handle, CURLOPT_XFERINFOFUNCTION, http::ResumableDownload::http_curl_progress_callback);
+	curl_easy_setopt(this->handle, CURLOPT_WRITEFUNCTION, http::ResumableDownload::http_curl_write_callback);
+
+	curl_easy_setopt(this->handle, CURLOPT_XFERINFODATA, this);
+	curl_easy_setopt(this->handle, CURLOPT_WRITEDATA, this);
+
+	if(this->downloadedSize != 0)
+	{
+		std::string val = "bytes=" + std::to_string(this->downloadedSize) + "-";
+		if(!this->append_header("Range", val.c_str()))
+			goto fail;
+	}
+
+	if(this->flags & http::ResumableDownload::flag_auth)
+	{
+		char *password;
+		if(!this->append_header("X-Auth-User", hsapi_user)) goto fail;
+		/*TRYJ(httpcAddRequestHeaderField(&this->hctx, "X-Auth-Password", password));*/password=(char*)malloc(hsapi_password_length+1);hsapi_password(password);password[hsapi_password_length]=0;if(!this->append_header("X-Auth-Password",password))goto fail;memset(password,0,hsapi_password_length);free(password);
+	}
+
+	panic_assert(!get_nsettings()->proxy_port, "Proxy not supported in curl backend!");
+
+	/* Set the headers */
+	curl_easy_setopt(handle, CURLOPT_HTTPHEADER, this->headers);
+
+	this->flags |= http::ResumableDownload::flag_active;
+	return 0;
+fail:
+	this->close_handle();
+	return APPERR_FAILED_CURL;
+}
+
+void http::ResumableDownload::abort()
+{
+	this->flags |= http::ResumableDownload::flag_exit;
+}
+
+Result http::ResumableDownload::global_init()
+{
+	return curl_global_init(CURL_GLOBAL_ALL) == 0
+		? 0 : APPERR_FAILED_CURL;
+}
+
+void http::ResumableDownload::backend_global_deinit()
+{
+	curl_global_cleanup();
+}
+
+#else
+	#error "HTTP_BACKEND has an improper value!"
+#endif
 

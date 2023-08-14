@@ -17,6 +17,7 @@
 #include "panic.hh"
 
 #include <stdlib.h>
+#include <malloc.h>
 
 #include <ui/base.hh>
 
@@ -29,8 +30,13 @@
 #include "log.hh"
 #include "ctr.hh"
 
+#define SOC_ALIGN       0x100000
+#define SOC_BUFFERSIZE  0x20000
+
 static bool gfx_is_init = false;
 void gfx_was_init() { gfx_is_init = true; }
+
+static u32 *g_socbuf = nullptr;
 
 Result init_services(bool& isLuma)
 {
@@ -43,7 +49,6 @@ Result init_services(bool& isLuma)
 #define TRYINIT(service_pretty, func, ...) if(R_FAILED(res = (func))) do { elog("Failed to initialize " service_pretty ", %08lX", res); return res; } while(0)
 	// Doesn't work in citra
 	if(isLuma) TRYINIT("MCU::HWC", mcuHwcInit());
-	/* 1MiB */ TRYINIT("http:C", httpcInit(1024 * 1024));
 	TRYINIT("ptm:sysm", ptmSysmInit());
 	TRYINIT("romfs", romfsInit());
 	TRYINIT("ptm:u", ptmuInit());
@@ -55,6 +60,28 @@ Result init_services(bool& isLuma)
 	TRYINIT("ac", acInit());
 #undef TRYINIT
 
+	if(!(g_socbuf = (u32 *) memalign(SOC_ALIGN, SOC_BUFFERSIZE)))
+	{
+		elog("failed to allocate buffer of %X (aligned %X) for SOC", SOC_BUFFERSIZE, SOC_ALIGN);
+		return res;
+	}
+	if(R_FAILED((res = socInit(g_socbuf, SOC_BUFFERSIZE))))
+	{
+		free(g_socbuf);
+		g_socbuf = nullptr;
+		elog("failed to initialize SOC: %08lX", res);
+		return res;
+	}
+
+	res = http::ResumableDownload::global_init();
+	if(R_FAILED(res = http::ResumableDownload::global_init()))
+	{
+		free(g_socbuf);
+		g_socbuf = nullptr;
+		elog("Failed to initialize ResumableDownload: %s\n");
+		return res;
+	}
+
 	return res;
 }
 
@@ -65,8 +92,14 @@ void exit_services()
 	http::ResumableDownload::global_abort();
 	install::global_abort();
 
+	if(g_socbuf != nullptr)
+	{
+		socExit();
+		free(g_socbuf);
+		g_socbuf = nullptr;
+	}
+
 	mcuHwcExit();
-	httpcExit();
 	ptmSysmExit();
 	romfsExit();
 	ptmuExit();

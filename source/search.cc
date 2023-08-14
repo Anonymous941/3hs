@@ -610,7 +610,7 @@ static bool show_filter_subcat_select(std::string& ret, filterTextsType filterTe
 	subcategories.reserve(category->subcategories.size());
 
 	ui::builder<ui::MenuSelect>(ui::Screen::bottom)
-		.connect(ui::MenuSelect::on_select, [&ret, &msel, &category, &subcategories]() -> bool {
+		.when_select([&ret, &msel, &category, &subcategories]() -> bool {
 			hsapi::Subcategory *scat = subcategories[msel->pos()];
 			ret = category->name + "." + (scat ? scat->name : "*");
 			return false;
@@ -648,7 +648,7 @@ static bool show_filter_select(std::string& ret, filterTextsType filterTexts, in
 	categories.reserve(hsapi::categories().size());
 
 	ui::builder<ui::MenuSelect>(ui::Screen::bottom)
-		.connect(ui::MenuSelect::on_select, [&ret, &filterTexts, &filterCount, &msel, &categories]() -> bool {
+		.when_select([&ret, &filterTexts, &filterCount, &msel, &categories]() -> bool {
 			return show_filter_subcat_select(ret, filterTexts, filterCount, categories[msel->pos()]);
 		})
 		.add_to(&msel, rq);
@@ -727,7 +727,7 @@ static bool show_normal_search()
 		.add_to(&invalidInput, rq);
 
 	ui::builder<ui::ButtonCallback>(ui::Screen::none, KEY_L | KEY_R)
-		.connect(ui::ButtonCallback::kdown, [&tabIndex, &groups, &headings, &cheading, &modehint, &perform_check, &bottomTab, &ctypeSelGrp, &filterGroups, &filterCount, &addButtons](u32 keys) -> bool {
+		.when_kdown([&tabIndex, &groups, &headings, &cheading, &modehint, &perform_check, &bottomTab, &ctypeSelGrp, &filterGroups, &filterCount, &addButtons](u32 keys) -> bool {
 			size_t newIndex;
 			if(keys & KEY_R) newIndex = tabIndex == ntabs - 1 ? 0 : tabIndex + 1;
 			else if(keys & KEY_L) newIndex = tabIndex == 0 ? ntabs - 1 : tabIndex - 1;
@@ -773,7 +773,7 @@ static bool show_normal_search()
 	ui::builder<ui::KBDEnabledButton>(ui::Screen::bottom, "", STRING(empty), STRING(enter_query))
 		.x(ui::layout::center_x)
 		.under(rq.back(), 5.0f)
-		.connect(ui::KBDEnabledButton::on_update, [&tabIndex, &perform_check](ui::KBDEnabledButton *) -> void {
+		.when_update([&tabIndex, &perform_check](ui::KBDEnabledButton *) -> void {
 			/* set the submit button hidden for invalid input */
 			perform_check(tabIndex);
 		})
@@ -784,7 +784,7 @@ static bool show_normal_search()
 		.x(ui::layout::right)
 		.y(ui::layout::bottom)
 		.hide() /* should be hidden by default since there'll be no input yet */
-		.connect(ui::Button::click, [&]() -> bool {
+		.when_clicked([&]() -> bool {
 			ui::RenderQueue::global()->render_and_then([&]() -> void {
 				std::unordered_map<std::string, std::string> params;
 				std::vector<hsapi::PartialTitle> titles;
@@ -876,15 +876,15 @@ static bool show_normal_search()
 		.size_children(0.50f)
 		.wrap()
 		.x(ui::layout::left)
-		.connect(ui::Selector<ContentType>::seek, ctype)
-		.connect(ui::Selector<ContentType>::exclusive_mode, false)
+		.seek_to(ctype)
+		.exclusive_mode(false)
 		.add_to(rq);
 	rq.group_last(ctypeSelGrp);
 
 	/* setup for the quick tab */
 		ui::builder<ui::Text>(ui::Screen::bottom, STRING(include_content))
 			.size(0.6f).x(filter_padding).under(kbd)
-			.connect(ui::Text::max_width, filter_div)
+			.max_width(filter_div)
 			.add_to(&widest_include_content, rq);
 		rq.group_last(groups[0]);
 
@@ -911,7 +911,7 @@ static bool show_normal_search()
 
 		ui::builder<ui::Text>(ui::Screen::bottom, STRING(regions))
 			.size(0.6f).x(filter_padding + filter_div).under(kbd)
-			.connect(ui::Text::max_width, filter_div)
+			.max_width(filter_div)
 			.add_to(rq);
 		rq.group_last(groups[0]);
 
@@ -946,14 +946,14 @@ static bool show_normal_search()
 		{
 			ui::builder<ui::Text>(ui::Screen::bottom, filterLabels[i])
 				.size(0.60f).x(filter_padding + filter_div*i)
-				.connect(ui::Text::max_width, filter_div)
+				.max_width(filter_div)
 				.under(kbd)
 				.add_to(&filterTexts[i][0], rq);
 			rq.group_last(groups[1]);
 
 			ui::builder<ui::Button>(ui::Screen::bottom, STRING(add))
 				.align_x(rq.back()).under(rq.back()).wrap()
-				.connect(ui::Button::click, [i, &filterTexts, &filterGroups, &filterCount, &addButtons, &bottomTab, &ctypeSelGrp]() -> bool {
+				.when_clicked([i, &filterTexts, &filterGroups, &filterCount, &addButtons, &bottomTab, &ctypeSelGrp]() -> bool {
 					ui::RenderQueue::global()->render_and_then([i, &filterTexts, &filterGroups, &filterCount, &addButtons, &bottomTab, &ctypeSelGrp]() -> void {
 						std::string filter;
 						if(!show_filter_select(filter, filterTexts, filterCount))
@@ -996,8 +996,8 @@ static bool show_normal_search()
 					.swap_slots(XColorSlot)
 					.align_x(filterTexts[i][0], 4.0f)
 					/* y pos is set later */
-					.connect(ui::Button::nobg)
-					.connect(ui::Button::click, [i, j, &filterCount, &filterTexts, &filterGroups, &addButtons, &bottomTab, &ctypeSelGrp]() -> bool {
+					.disable_background()
+					.when_clicked([i, j, &filterCount, &filterTexts, &filterGroups, &addButtons, &bottomTab, &ctypeSelGrp]() -> bool {
 						/* we must move up all other filters under us and then delete the final one */
 						panic_assert(filterCount[i], "button pressed when it should be hidden");
 						for(int k = j, l = filterCount[i] - 1; k < l; ++k)
@@ -1025,7 +1025,7 @@ static bool show_normal_search()
 					.size(0.45f)
 					.right(rq.back())
 					/* y pos is set later */
-					.connect(ui::Text::max_width, filter_div - 4.0f*3.0f /* padding */)
+					.max_width(filter_div - 4.0f*3.0f /* padding */)
 					.wrap().hide()
 					.add_to(&filterTexts[i][j + 1], rq);
 				rq.group_last(groups[1]);
@@ -1043,7 +1043,7 @@ static bool show_normal_search()
 		groups[i].set_hidden(true);
 
 	ui::builder<ui::ButtonCallback>(ui::Screen::none, KEY_A)
-		.connect(ui::ButtonCallback::kdown, [submit](u32) -> bool { if(!submit->is_hidden()) submit->press(); return true; })
+		.when_kdown([submit](u32) -> bool { if(!submit->is_hidden()) submit->press(); return true; })
 		.add_to(rq);
 
 	rq.render_finite_button(KEY_B | KEY_START);
@@ -1065,12 +1065,12 @@ void show_search()
 
 	ui::RenderQueue queue;
 	ui::builder<ui::MenuSelect>(ui::Screen::bottom)
-		.connect(ui::MenuSelect::add, STRING(normal_search), show_normal_search)
-		.connect(ui::MenuSelect::add, STRING(search_text), show_searchbar_search)
-		.connect(ui::MenuSelect::add, STRING(search_id), show_id_search)
-		.connect(ui::MenuSelect::add, STRING(search_tid), show_tid_search)
-		.connect(ui::MenuSelect::add, STRING(search_prod), show_prod_search)
-		.connect(ui::MenuSelect::add, STRING(lgy_search), legacy_search)
+		.add_row(STRING(normal_search), show_normal_search)
+		.add_row(STRING(search_text), show_searchbar_search)
+		.add_row(STRING(search_id), show_id_search)
+		.add_row(STRING(search_tid), show_tid_search)
+		.add_row(STRING(search_prod), show_prod_search)
+		.add_row(STRING(lgy_search), legacy_search)
 		.add_to(queue);
 
 	queue.render_finite_button(KEY_B);

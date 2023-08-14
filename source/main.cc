@@ -170,7 +170,9 @@ int main(int argc, char* argv[])
 	((void) argv);
 	Result res;
 
-	ensure_settings(); /* log_init() uses settings ... */
+	/* If the settings were reset by ensure_settings() the language was detected */
+	bool languageDetected = ensure_settings(); /* log_init() uses settings ... */
+	atexit(settings_sync);
 	log_init();
 	atexit(log_exit);
 #ifdef RELEASE
@@ -196,10 +198,28 @@ int main(int argc, char* argv[])
 
 	hidScanInput();
 	if((hidKeysDown() | hidKeysHeld()) & KEY_R)
+	{
 		reset_settings();
+		languageDetected = false;
+	}
 
 	if(get_nsettings()->lang == lang::spanish)
 		brick_negro();
+
+	/* Checking if the user actually speaks the target language should be done before any other string is display by the user */
+	if(languageDetected && get_nsettings()->lang != lang::english)
+	{
+		/* These strings must be in English */
+		std::string lang = i18n::langname(get_nsettings()->lang);
+		std::string string = PSTRING(automatically_detected, lang);
+		string += "\n3hs has automatically detected the system language is ";
+		string += lang;
+		string += ". Press " UI_GLYPH_B " to reset to English.";
+
+		/* TODO: The confirmation menu perhaps needs some more work */
+		if(!ui::Confirm::exec("Is this correct?", string))
+			get_nsettings()->lang = lang::english;
+	}
 
 #if VERSION_CHECK
 	// Check if we are under system version 9.6 (9.6 added seed support, which is essential for most new titles)
@@ -263,11 +283,11 @@ int main(int argc, char* argv[])
 
 	/* buttons */
 	ui::builder<ui::Button>(ui::Screen::bottom, ui::Sprite::theme, ui::theme::settings_image)
-		.connect(ui::Button::click, []() -> bool {
+		.when_clicked([]() -> bool {
 			ui::RenderQueue::global()->render_and_then(show_settings);
 			return true;
 		})
-		.connect(ui::Button::nobg)
+		.disable_background()
 		.wrap()
 		.x(5.0f)
 		.y(210.0f)
@@ -275,11 +295,11 @@ int main(int argc, char* argv[])
 		.add_to(ui::RenderQueue::global());
 
 	ui::builder<ui::Button>(ui::Screen::bottom, ui::Sprite::theme, ui::theme::more_image)
-		.connect(ui::Button::click, []() -> bool {
+		.when_clicked([]() -> bool {
 			ui::RenderQueue::global()->render_and_then(show_more);
 			return true;
 		})
-		.connect(ui::Button::nobg)
+		.disable_background()
 		.wrap()
 		.right(ui::RenderQueue::global()->back())
 		.y(210.0f)
@@ -287,11 +307,11 @@ int main(int argc, char* argv[])
 		.add_to(ui::RenderQueue::global());
 
 	ui::builder<ui::Button>(ui::Screen::bottom, ui::Sprite::theme, ui::theme::search_image)
-		.connect(ui::Button::click, []() -> bool {
+		.when_clicked([]() -> bool {
 			ui::RenderQueue::global()->render_and_then(show_search);
 			return true;
 		})
-		.connect(ui::Button::nobg)
+		.disable_background()
 		.wrap()
 		.right(ui::RenderQueue::global()->back())
 		.y(210.0f)
@@ -300,7 +320,7 @@ int main(int argc, char* argv[])
 
 	static bool isInRand = false;
 	ui::builder<ui::Button>(ui::Screen::bottom, ui::Sprite::theme, ui::theme::random_image)
-		.connect(ui::Button::click, []() -> bool {
+		.when_clicked([]() -> bool {
 			ui::RenderQueue::global()->render_and_then([]() -> void {
 				if(isInRand) return;
 				isInRand = true;
@@ -311,7 +331,7 @@ int main(int argc, char* argv[])
 			});
 			return true;
 		})
-		.connect(ui::Button::nobg)
+		.disable_background()
 		.wrap()
 		.right(ui::RenderQueue::global()->back())
 		.y(210.0f)
@@ -319,11 +339,11 @@ int main(int argc, char* argv[])
 		.add_to(ui::RenderQueue::global());
 
 	ui::builder<ui::Button>(ui::Screen::bottom, STRING(queue))
-		.connect(ui::Button::click, []() -> bool {
+		.when_clicked([]() -> bool {
 			ui::RenderQueue::global()->render_and_then(show_queue);
 			return true;
 		})
-		.connect(ui::Button::nobg)
+		.disable_background()
 		.wrap()
 		.right(ui::RenderQueue::global()->back())
 		.y(210.0f)
@@ -402,13 +422,6 @@ int main(int argc, char* argv[])
 		if(kDown & KEY_X) { player_halt(); reset_status(); }
 	});
 
-	if(!hsapi::global_init())
-	{
-		flog("hsapi::global_init() failed");
-		panic(STRING(fail_init_networking));
-	}
-	atexit(hsapi::global_deinit);
-
 #ifdef RELEASE
 	// If we updated ...
 	ilog("Checking for updates");
@@ -438,7 +451,7 @@ cat:
 		// User wants to exit app
 		if(cat == next_cat_exit) break;
 		ilog("NEXT(c): %s", hsapi::category(cat).name.c_str());
-		/* we need to reset this since we've changed categories, meaning 
+		/* we need to reset this since we've changed categories, meaning
 		 * the subcategory data is invalid */
 		if(cat != associatedcat)
 		{
@@ -466,6 +479,7 @@ sub:
 		associatedsub = sub;
 
 gam:
+//		hsapi::hid id = next::sel_icon_gam(titles, hsapi::category(cat), hsapi::subcategory(cat, sub)); //&grdata, visited_gam);
 		hsapi::hid id = next::sel_gam(titles, &grdata, visited_gam);
 		if(id == next_gam_back) goto sub;
 		if(id == next_gam_exit) break;

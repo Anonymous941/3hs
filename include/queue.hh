@@ -28,7 +28,6 @@ void queue_add(hsapi::hid id, bool disp = true);
 void queue_add(const hsapi::Title& meta);
 void queue_process(size_t index);
 void queue_remove(size_t index);
-void queue_add(hsapi::hid id);
 void queue_process_all();
 void queue_clear();
 void show_queue();

@@ -50,7 +50,7 @@ void ui::MenuSelect::push_button(const std::string& label)
 {
 	u32 myi = this->btns.size();
 	ui::Button *b = ui::builder<ui::Button>(this->screen, label)
-		.connect(ui::Button::click, [this, myi]() -> bool {
+		.when_clicked([this, myi]() -> bool {
 			/* pressing equates to clicking A */
 			this->select(myi, KEY_A);
 			this->call_current();
@@ -76,33 +76,6 @@ void ui::MenuSelect::add_row(const std::string& label)
 {
 	panic_assert(this->main_callback, "attempt to add callback-less row without main callback");
 	this->push_button(label);
-}
-
-void ui::MenuSelect::connect(connect_type t, const std::string& s, callback_t c)
-{
-	panic_assert(t == ui::MenuSelect::add, "expected ::add");
-	this->add_row(s, c);
-}
-
-void ui::MenuSelect::connect(connect_type t, u32 mask)
-{
-	panic_assert(t == ui::MenuSelect::set_key_mask, "expected ::set_key_mask");
-	this->kdownmask = mask;
-}
-
-void ui::MenuSelect::connect(connect_type t, callback_t c)
-{
-	switch(t)
-	{
-	case ui::MenuSelect::on_select:
-		this->main_callback = c;
-		break;
-	case ui::MenuSelect::on_move:
-		this->cursor_move_callback = c;
-		break;
-	default:
-		panic("EINVAL");
-	}
 }
 
 float ui::MenuSelect::height()

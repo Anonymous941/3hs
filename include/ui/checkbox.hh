@@ -40,8 +40,16 @@ namespace ui
 
 		bool checked() { return !!(this->flags & CHECKED); }
 
-		enum connect_type { on_change };
-		void connect(connect_type, std::function<void(bool)> cb);
+		UI_BUILDER_EXTENSIONS()
+		{
+			UI_USING_BUILDER()
+		public:
+			ReturnValue when_change(std::function<void(bool)> cb)
+			{
+				this->instance().on_change_cb = cb;
+				return this->return_value();
+			}
+		};
 
 		void set_checked(bool c);
 

@@ -43,6 +43,16 @@
 		const char *get_id() override { return name; } \
 	private:
 
+#define UI_BUILDER_EXTENSIONS() \
+	template <typename TWidget> \
+	class Internal__MyBuilder : public ui::detail::builder<TWidget, Internal__MyBuilder<TWidget>>
+#define UI_USING_BUILDER() \
+	public: using ui::detail::builder<TWidget, Internal__MyBuilder<TWidget>>::builder; \
+	private: using ReturnValue = Internal__MyBuilder<TWidget>&; \
+	private: TWidget& instance() { return *this->el; } \
+	protected: ReturnValue return_value() override { return *this; } \
+	private:
+
 #define UI_COLOR(r,g,b,a) \
 	0x##a##b##g##r
 
@@ -232,9 +242,238 @@ namespace ui
 		return (keys.kDown | keys.kHeld) & KEY_TOUCH;
 	}
 
+	/* class for basic operations on an array of widgets */
+	class WidgetGroup
+	{
+	public:
+		void position_under(ui::BaseWidget *other, float initpad = 4.0f, float elpadding = 2.0f);
+		void position_under_horizontal(ui::BaseWidget *other, float pad = 3.0f);
+		void set_y_descending(float base, float elpadding = 2.0f);
+		void translate(float x, float y);
+		void add(ui::BaseWidget *w);
+		void set_hidden(bool b);
+
+		ui::BaseWidget *max_height();
+		ui::BaseWidget *max_width();
+		ui::BaseWidget *min_height();
+		ui::BaseWidget *min_width();
+		ui::BaseWidget *highest();
+		ui::BaseWidget *lowest();
+		ui::BaseWidget *rightmost();
+		ui::BaseWidget *leftmost();
+
+	private:
+		std::vector<ui::BaseWidget *> ws;
+
+	};
+
+
+	/* Renders a list of derivatives of ui::BaseWidget */
+	class RenderQueue
+	{
+	public:
+		~RenderQueue();
+
+		/* ensure all RenderQueue's will stop rendering on all threads, if this is called
+		 * this function may deadlock, be careful */
+		static void terminate_render();
+
+		/* push a new widget into the queue */
+		void push(ui::BaseWidget *wid);
+		/* render forever */
+		void render_forever();
+		/* render until render_frame() returns false */
+		void render_finite();
+		/* Renders until keys.kDown & kDownMask > 0 */
+		void render_until_button(u32 kDownMask);
+		/* Renders until keys.kDown & kDownMask > 0 or if render_frame() returns false */
+		void render_finite_button(u32 kDownMask);
+		/* returns false if this should be the last frame,
+		 * else returns true.
+		 * Same as render_frame() except the global queue doesn't get rendered */
+		bool render_exclusive_frame(ui::Keys&);
+		/* returns false if this should be the last frame,
+		 * else returns true */
+		bool render_frame(ui::Keys&);
+		/* returns false if this should be the last frame,
+		 * else returns true */
+		bool render_frame();
+		/* renders only the bottom widgets */
+		bool render_bottom(ui::Keys&);
+		/* renders only the top widgets */
+		bool render_top(ui::Keys&);
+		/* renders a frame on `screen` */
+		bool render_screen(ui::Keys&, ui::Screen screen);
+		/* removes all widgets in the queue */
+		void clear();
+		/* runs the callback after the frame render is done. Runs only once
+		 * NOTE: you can only have 1 callback every frame
+		 * NOTE 2: only works on the global renderqueue */
+		void render_and_then(std::function<bool()> cb);
+		void render_and_then(std::function<void()> cb);
+		/* Detaches a callback set by
+		 * render_and_then */
+		void detach_after();
+		/* Signals the RenderQueue */
+		void signal(u8 bits);
+		/* Unsets a signal from the RenderQueue */
+		void unsignal(u8 bits);
+		/* find a widget by tag
+		 * First searches top widgets, then bottom
+		 * Returns nullptr if no matches were found */
+		template <typename TWidget = ui::BaseWidget, typename TBase = ui::BaseWidget>
+		TWidget *find_tag(int t)
+		{
+			for(TBase *w : this->top)
+				if(w->matches_tag(t)) return (TWidget *) w;
+			for(TBase *w : this->bot)
+				if(w->matches_tag(t)) return (TWidget *) w;
+			return nullptr;
+		}
+		/* gets the last pushed element
+		 * returns nullptr if the queue is empty */
+		template <typename TWidget = ui::BaseWidget>
+		TWidget *back()
+		{
+			return (TWidget *) this->backPtr;
+		}
+		/* adds the last pushed element to a group */
+		void group_last(ui::WidgetGroup& group)
+		{
+			group.add(this->backPtr);
+		}
+
+		/* Gets the global RenderQueue */
+		static ui::RenderQueue *global();
+		/* Gets the pressed keys */
+		static ui::Keys get_keys();
+
+		enum signal { signal_cancel = 1 };
+
+		std::list<ui::BaseWidget *> sleepProcessors;
+		std::list<ui::BaseWidget *> top;
+		std::list<ui::BaseWidget *> bot;
+
+	private:
+		int enter_frame();
+		bool exit_frame();
+
+		std::function<bool()> *after_render_complete = nullptr;
+		ui::BaseWidget *backPtr = nullptr;
+		u8 signalBit = 0;
+
+
+	};
+
+	namespace detail
+	{
+		inline constexpr float diff(float a, float b)
+		{
+			return a > b ? a - b : b - a;
+		}
+
+		/* builder for a ui::BaseWidget derivative */
+
+		template <typename TWidget, typename TRV, typename TBase = ui::BaseWidget>
+		class builder
+		{
+		public:
+			template<typename ... Ts>
+			builder(ui::Screen scr, Ts&& ... args)
+			{
+				this->el = new TWidget(scr);
+				this->el->setup(args...);
+			}
+
+			builder(TWidget *nel) : el(nel), leaked(true) { }
+
+			~builder()
+			{
+				if(!this->leaked && this->el != nullptr)
+					delete this->el;
+			}
+
+			/* Sets the size of a widget. Not supported by all widgets */
+			TRV& size(float x, float y) { this->el->resize(x, y); return this->return_value(); }
+			/* Sets the size of a widget. Not supported by all widgets */
+			TRV& size(float xy) { this->el->resize(xy, xy); return this->return_value(); }
+			/* Sets the size of any potential widget children. Not supported by all widgets */
+			TRV& size_children(float x, float y) { this->el->resize_children(x, y); return this->return_value(); }
+			/* Sets the size of any potential widget children. Not supported by all widgets */
+			TRV& size_children(float xy) { this->el->resize_children(xy, xy); return this->return_value(); }
+			/* Autowraps the widget. Not supported by all widgets */
+			TRV& wrap() { this->el->autowrap(); return this->return_value(); }
+			/* Sets a border around the widget. Not supported by all widgets */
+			TRV& border() { this->el->set_border(true); return this->return_value(); }
+			/* Makes the widget scroll. Not supported by all widgets */
+			TRV& scroll() { this->el->scroll(); return this->return_value(); }
+			/* Do a manual configuration with a callback */
+			TRV& configure(std::function<void(TWidget*)> conf) { conf(this->el); return this->return_value(); }
+			/* Hide/unhide the widget */
+			TRV& hide(bool hidden = true) { this->el->set_hidden(hidden); return this->return_value(); }
+			/* Set the tag of the widget */
+			TRV& tag(int t) { this->el->set_tag(t); return this->return_value(); }
+			/* Set x position. note: you most likely want to call this last */
+			TRV& x(float v) { this->el->set_x(v); return this->return_value(); }
+			/* Set y position. note: you most likely want to call this last */
+			TRV& y(float v) { this->el->set_y(v); return this->return_value(); }
+			/* Set z position. note: you most likely want to call this last */
+			TRV& z(float v) { this->el->set_z(v); return this->return_value(); }
+			/* positions the widget under another widget */
+			TRV& under(TBase *w, float pad = 3.0f) { this->el->set_y(ui::under(w, this->el, pad)); return this->return_value(); }
+			/* positions the widget above another widget */
+			TRV& above(TBase *w, float pad = 3.0f) { this->el->set_y(ui::above(w, this->el, pad)); return this->return_value(); }
+			/* positions the widget right from another widget */
+			TRV& right(TBase *w, float pad = 3.0f) { this->el->set_x(ui::right(w, this->el, pad)); return this->return_value(); }
+			/* positions the widget in the center next to another widget */
+			TRV& next_center(TBase *w, float pad = 3.0f) { ui::set_double_center(w, this->el, pad); return this->return_value(); }
+			/* positions the widget left from another widget */
+			TRV& left(TBase *w, float pad = 3.0f) { this->el->set_x(ui::left(w, this->el, pad)); return this->return_value(); }
+			/* sets the y position to the center of w relative to the y-axis */
+			TRV& middle(TBase *w, float offset = -1.0f) { this->el->set_y(ui::ycenter_rel(w, this->el) - offset); return this->return_value(); }
+			/* sets the y position of the OTHER widget to the center of this relative to the y-axis */
+			TRV& omiddle(TBase *w, float offset = -1.0f) { w->set_y(ui::ycenter_rel(this->el, w) - offset); return this->return_value(); }
+			/* sets the y of the building widget to that of another one offseted so it hits the baseline of the other one */
+			TRV& align_y(TBase *w, float offset = 0.0f) { this->el->set_y(w->get_y() - offset + diff(w->height(), this->el->height())); return this->return_value(); }
+			/* sets the x of the building widget to that of another one */
+			TRV& align_x(TBase *w, float offset = 0.0f) { this->el->set_x(w->get_x() + offset); return this->return_value(); }
+			/* sets the y of the building widget to the center of another one */
+			TRV& align_y_center(TBase *w) { this->el->set_y(ui::center_align_y(w, this->el)); return this->return_value(); }
+			/* swaps the slots for a widget */
+			TRV& swap_slots(const StaticSlot& slot) { this->el->swap_slots(slot); return this->return_value(); }
+
+			/* Add the built widget to a RenderQueue */
+			void add_to(ui::RenderQueue& queue) { queue.push((TBase *) this->finalize()); }
+			/* Add the built widget to a RenderQueue */
+			void add_to(ui::RenderQueue *queue) { queue->push((TBase *) this->finalize()); }
+			/* Add the built widget to a RenderQueue and your own pointer */
+			void add_to(TWidget **ret, ui::RenderQueue& queue) { *ret = this->finalize(); queue.push((TBase *) *ret); }
+			/* Add the built widget to a RenderQueue and your own pointer */
+			void add_to(TWidget **ret, ui::RenderQueue *queue) { *ret = this->finalize(); queue->push((TBase *) *ret); }
+			/* finalize the built widget and return a pointer to it */
+			TWidget *finalize() { this->el->finalize(); TWidget *ret = this->el; this->el = nullptr; return ret; }
+
+		protected:
+			virtual TRV& return_value() = 0;
+			TWidget *el = nullptr;
+			bool leaked = false;
+
+		};
+	}
+
 	/* base widget class */
 	class BaseWidget
 	{
+	public:
+		template <typename TWidget>
+		class Internal__MyBuilder : public ui::detail::builder<TWidget, Internal__MyBuilder<TWidget>>
+		{
+		public:
+			using ui::detail::builder<TWidget, Internal__MyBuilder<TWidget>>::builder;
+		protected:
+			Internal__MyBuilder& return_value() { return *this; }
+		};
+
 	public:
 		BaseWidget(ui::Screen scr)
 			: screen(scr) { }
@@ -304,223 +543,8 @@ namespace ui
 
 	};
 
-	/* class for basic operations on an array of widgets */
-	class WidgetGroup
-	{
-	public:
-		void position_under(ui::BaseWidget *other, float initpad = 4.0f, float elpadding = 2.0f);
-		void position_under_horizontal(ui::BaseWidget *other, float pad = 3.0f);
-		void set_y_descending(float base, float elpadding = 2.0f);
-		void translate(float x, float y);
-		void add(ui::BaseWidget *w);
-		void set_hidden(bool b);
-
-		ui::BaseWidget *max_height();
-		ui::BaseWidget *max_width();
-		ui::BaseWidget *min_height();
-		ui::BaseWidget *min_width();
-		ui::BaseWidget *highest();
-		ui::BaseWidget *lowest();
-		ui::BaseWidget *rightmost();
-		ui::BaseWidget *leftmost();
-
-	private:
-		std::vector<ui::BaseWidget *> ws;
-
-	};
-
-	/* Renders a list of derivatives of ui::BaseWidget */
-	class RenderQueue
-	{
-	public:
-		~RenderQueue();
-
-		/* ensure all RenderQueue's will stop rendering on all threads, if this is called
-		 * this function may deadlock, be careful */
-		static void terminate_render();
-
-		/* push a new widget into the queue */
-		void push(ui::BaseWidget *wid);
-		/* render forever */
-		void render_forever();
-		/* render until render_frame() returns false */
-		void render_finite();
-		/* Renders until keys.kDown & kDownMask > 0 */
-		void render_until_button(u32 kDownMask);
-		/* Renders until keys.kDown & kDownMask > 0 or if render_frame() returns false */
-		void render_finite_button(u32 kDownMask);
-		/* returns false if this should be the last frame,
-		 * else returns true.
-		 * Same as render_frame() except the global queue doesn't get rendered */
-		bool render_exclusive_frame(ui::Keys&);
-		/* returns false if this should be the last frame,
-		 * else returns true */
-		bool render_frame(ui::Keys&);
-		/* returns false if this should be the last frame,
-		 * else returns true */
-		bool render_frame();
-		/* renders only the bottom widgets */
-		bool render_bottom(ui::Keys&);
-		/* renders only the top widgets */
-		bool render_top(ui::Keys&);
-		/* renders a frame on `screen` */
-		bool render_screen(ui::Keys&, ui::Screen screen);
-		/* removes all widgets in the queue */
-		void clear();
-		/* runs the callback after the frame render is done. Runs only once
-		 * NOTE: you can only have 1 callback every frame
-		 * NOTE 2: only works on the global renderqueue */
-		void render_and_then(std::function<bool()> cb);
-		void render_and_then(std::function<void()> cb);
-		/* Detaches a callback set by
-		 * render_and_then */
-		void detach_after();
-		/* Signals the RenderQueue */
-		void signal(u8 bits);
-		/* Unsets a signal from the RenderQueue */
-		void unsignal(u8 bits);
-		/* find a widget by tag
-		 * First searches top widgets, then bottom
-		 * Returns nullptr if no matches were found */
-		template <typename TWidget = ui::BaseWidget>
-		TWidget *find_tag(int t)
-		{
-			for(ui::BaseWidget *w : this->top)
-				if(w->matches_tag(t)) return (TWidget *) w;
-			for(ui::BaseWidget *w : this->bot)
-				if(w->matches_tag(t)) return (TWidget *) w;
-			return nullptr;
-		}
-		/* gets the last pushed element
-		 * returns nullptr if the queue is empty */
-		template <typename TWidget = ui::BaseWidget>
-		TWidget *back()
-		{
-			return (TWidget *) this->backPtr;
-		}
-		/* adds the last pushed element to a group */
-		void group_last(ui::WidgetGroup& group)
-		{
-			group.add(this->backPtr);
-		}
-
-		/* Gets the global RenderQueue */
-		static ui::RenderQueue *global();
-		/* Gets the pressed keys */
-		static ui::Keys get_keys();
-
-		enum signal { signal_cancel = 1 };
-
-		std::list<ui::BaseWidget *> sleepProcessors;
-		std::list<ui::BaseWidget *> top;
-		std::list<ui::BaseWidget *> bot;
-
-	private:
-		int enter_frame();
-		bool exit_frame();
-
-		std::function<bool()> *after_render_complete = nullptr;
-		ui::BaseWidget *backPtr = nullptr;
-		u8 signalBit = 0;
-
-
-	};
-
-	inline constexpr float diff(float a, float b)
-	{
-		return a > b ? a - b : b - a;
-	}
-
-	/* builder for a ui::BaseWidget derivative */
-	template <typename TWidget>
-	class builder
-	{
-	public:
-		template<typename ... Ts>
-		builder(ui::Screen scr, Ts&& ... args)
-		{
-			this->el = new TWidget(scr);
-			this->el->setup(args...);
-		}
-
-		~builder()
-		{
-			if(this->el != nullptr)
-				delete this->el;
-		}
-
-		/* Sets the size of a widget. Not supported by all widgets */
-		ui::builder<TWidget>& size(float x, float y) { this->el->resize(x, y); return *this; }
-		/* Sets the size of a widget. Not supported by all widgets */
-		ui::builder<TWidget>& size(float xy) { this->el->resize(xy, xy); return *this; }
-		/* Sets the size of any potential widget children. Not supported by all widgets */
-		ui::builder<TWidget>& size_children(float x, float y) { this->el->resize_children(x, y); return *this; }
-		/* Sets the size of any potential widget children. Not supported by all widgets */
-		ui::builder<TWidget>& size_children(float xy) { this->el->resize_children(xy, xy); return *this; }
-		/* Autowraps the widget. Not supported by all widgets */
-		ui::builder<TWidget>& wrap() { this->el->autowrap(); return *this; }
-		/* Sets a border around the widget. Not supported by all widgets */
-		ui::builder<TWidget>& border() { this->el->set_border(true); return *this; }
-		/* Makes the widget scroll. Not supported by all widgets */
-		ui::builder<TWidget>& scroll() { this->el->scroll(); return *this; }
-		/* Connects a type and argument, effect depends on the widget.
-		 * Not supported by all widgets */
-		template <typename T = TWidget /* weird template is so that builder works on types without T::connect_type */,
-			typename ... Ts> ui::builder<T>& connect(typename T::connect_type type, Ts&& ... args)
-				{ this->el->connect(type, args...); return *this; }
-
-		/* Do a manual configuration with a callback */
-		ui::builder<TWidget>& configure(std::function<void(TWidget*)> conf) { conf(this->el); return *this; }
-		/* Hide/unhide the widget */
-		ui::builder<TWidget>& hide(bool hidden = true) { this->el->set_hidden(hidden); return *this; }
-		/* Set the tag of the widget */
-		ui::builder<TWidget>& tag(int t) { this->el->set_tag(t); return *this; }
-		/* Set x position. note: you most likely want to call this last */
-		ui::builder<TWidget>& x(float v) { this->el->set_x(v); return *this; }
-		/* Set y position. note: you most likely want to call this last */
-		ui::builder<TWidget>& y(float v) { this->el->set_y(v); return *this; }
-		/* Set z position. note: you most likely want to call this last */
-		ui::builder<TWidget>& z(float v) { this->el->set_z(v); return *this; }
-		/* positions the widget under another widget */
-		ui::builder<TWidget>& under(ui::BaseWidget *w, float pad = 3.0f) { this->el->set_y(ui::under(w, this->el, pad)); return *this; }
-		/* positions the widget above another widget */
-		ui::builder<TWidget>& above(ui::BaseWidget *w, float pad = 3.0f) { this->el->set_y(ui::above(w, this->el, pad)); return *this; }
-		/* positions the widget right from another widget */
-		ui::builder<TWidget>& right(ui::BaseWidget *w, float pad = 3.0f) { this->el->set_x(ui::right(w, this->el, pad)); return *this; }
-		/* positions the widget in the center next to another widget */
-		ui::builder<TWidget>& next_center(ui::BaseWidget *w, float pad = 3.0f) { ui::set_double_center(w, this->el, pad); return *this; }
-		/* positions the widget left from another widget */
-		ui::builder<TWidget>& left(ui::BaseWidget *w, float pad = 3.0f) { this->el->set_x(ui::left(w, this->el, pad)); return *this; }
-		/* sets the y position to the center of w relative to the y-axis */
-		ui::builder<TWidget>& middle(ui::BaseWidget *w, float offset = -1.0f) { this->el->set_y(ui::ycenter_rel(w, this->el) - offset); return *this; }
-		/* sets the y position of the OTHER widget to the center of this relative to the y-axis */
-		ui::builder<TWidget>& omiddle(ui::BaseWidget *w, float offset = -1.0f) { w->set_y(ui::ycenter_rel(this->el, w) - offset); return *this; }
-		/* sets the y of the building widget to that of another one offseted so it hits the baseline of the other one */
-		ui::builder<TWidget>& align_y(ui::BaseWidget *w, float offset = 0.0f) { this->el->set_y(w->get_y() - offset + diff(w->height(), this->el->height())); return *this; }
-		/* sets the x of the building widget to that of another one */
-		ui::builder<TWidget>& align_x(ui::BaseWidget *w, float offset = 0.0f) { this->el->set_x(w->get_x() + offset); return *this; }
-		/* sets the y of the building widget to the center of another one */
-		ui::builder<TWidget>& align_y_center(ui::BaseWidget *w) { this->el->set_y(ui::center_align_y(w, this->el)); return *this; }
-		/* swaps the slots for a widget */
-		ui::builder<TWidget>& swap_slots(const StaticSlot& slot) { this->el->swap_slots(slot); return *this; }
-
-		/* Add the built widget to a RenderQueue */
-		void add_to(ui::RenderQueue& queue) { queue.push((ui::BaseWidget *) this->finalize()); }
-		/* Add the built widget to a RenderQueue */
-		void add_to(ui::RenderQueue *queue) { queue->push((ui::BaseWidget *) this->finalize()); }
-		/* Add the built widget to a RenderQueue and your own pointer */
-		void add_to(TWidget **ret, ui::RenderQueue& queue) { *ret = this->finalize(); queue.push((ui::BaseWidget *) *ret); }
-		/* Add the built widget to a RenderQueue and your own pointer */
-		void add_to(TWidget **ret, ui::RenderQueue *queue) { *ret = this->finalize(); queue->push((ui::BaseWidget *) *ret); }
-		/* finalize the built widget and return a pointer to it */
-		TWidget *finalize() { this->el->finalize(); TWidget *ret = this->el; this->el = nullptr; return ret; }
-
-
-	private:
-		TWidget *el = nullptr;
-
-
-	};
+	template <typename T>
+	using builder = typename T::Internal__MyBuilder<T>;
 
 	class SpriteStore
 	{
@@ -610,8 +634,16 @@ namespace ui
 		/* gets the current text of the widget */
 		const std::string& get_text();
 
-		enum connect_type { max_width };
-		void connect(connect_type, float);
+		UI_BUILDER_EXTENSIONS()
+		{
+			UI_USING_BUILDER()
+		public:
+			ReturnValue max_width(float w)
+			{
+				this->instance().maxw = w;
+				return this->return_value();
+			}
+		};
 
 		void swap_slots(const StaticSlot&) override;
 
@@ -736,11 +768,22 @@ namespace ui
 		/* get the label, if the subwidget is not a ui::Text this probably crashes */
 		const std::string& get_label();
 
-		enum connect_type { click, nobg };
-		/* click */
-		void connect(connect_type type, click_cb_t callback);
-		/* nobg */
-		void connect(connect_type type);
+		UI_BUILDER_EXTENSIONS()
+		{
+			UI_USING_BUILDER()
+		public:
+			ReturnValue when_clicked(click_cb_t cb)
+			{
+				this->instance().on_click = cb;
+				return this->return_value();
+			}
+
+			ReturnValue disable_background()
+			{
+				this->instance().showBg = false;
+				return this->return_value();
+			}
+		};
 
 		float textwidth();
 
@@ -773,19 +816,41 @@ namespace ui
 		float height() override { return 0.0f; }
 		float width() override { return 0.0f; }
 
-		enum connect_type {
-			none,
-			kdown,
-			kheld,
-			kup,
+		enum class ListenerType {
+			down,
+			held,
+			up,
 		};
-		/* activate */
-		void connect(connect_type type, std::function<bool(u32)> cb);
 
+		using on_activate_type = std::function<bool(u32)>;
+
+		UI_BUILDER_EXTENSIONS()
+		{
+			UI_USING_BUILDER()
+		public:
+			ReturnValue when_kdown(on_activate_type cb)
+			{
+				this->instance().cb_down = cb;
+				return this->return_value();
+			}
+
+			ReturnValue when_kheld(on_activate_type cb)
+			{
+				this->instance().cb_held = cb;
+				return this->return_value();
+			}
+
+			ReturnValue when_kup(on_activate_type cb)
+			{
+				this->instance().cb_up = cb;
+				return this->return_value();
+			}
+		};
 
 	private:
-		std::function<bool(u32)> cb = [](u32) -> bool { return true; };
-		connect_type type = none;
+		on_activate_type cb_down = [](u32) -> bool { return true; };
+		on_activate_type cb_held = [](u32) -> bool { return true; };
+		on_activate_type cb_up   = [](u32) -> bool { return true; };
 		u32 keys;
 
 

@@ -202,21 +202,22 @@ namespace ui
 			}
 		}
 
-		enum connect_type { exclusive_mode, seek };
-
-		void connect(connect_type type, bool val)
+		UI_BUILDER_EXTENSIONS()
 		{
-			if(type != exclusive_mode)
-				return;
-			this->exclusiveMode = val;
-		}
+			UI_USING_BUILDER()
+		public:
+			ReturnValue exclusive_mode(bool b = true)
+			{
+				this->instance().exclusiveMode = b;
+				return this->return_value();
+			}
 
-		void connect(connect_type type, TEnum val)
-		{
-			if(type != seek)
-				return;
-			this->search_set_idx(val);
-		}
+			ReturnValue seek_to(TEnum val)
+			{
+				this->instance().search_set_idx(val);
+				return this->return_value();
+			}
+		};
 
 	private:
 		ui::SlotManager slots { nullptr };

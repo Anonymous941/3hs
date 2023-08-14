@@ -31,7 +31,7 @@ public:
 	float height() override { return 0.0f; }
 	float width() override { return 0.0f; }
 
-	bool is_running() { return this->flags & 4; }
+	bool is_running() { return this->flags & flag_running; }
 
 private:
 	enum flag {
@@ -43,18 +43,28 @@ private:
 		flag_is_ticker = 32,
 	};
 
-	void start(const std::string& str, bool is_ticker);
+	enum class StatusDisplayType {
+		slide_in,
+		ticker,
+	};
+
+	void start(const std::string& str, StatusDisplayType type);
 
 	ui::ScopedWidget<ui::Text> text;
-	float xpos, fadeoutx;
 	time_t in_pos_start;
 	int flags = 0;
+	union {
+		float fadeouty, fadeoutx, fadeout;
+		float ypos, xpos, pos;
+	};
 
 };
 
 
 /* returns if we were previously focussed */
 bool set_focus(bool focus);
+u8 make_status_line_clear();
+void restore_status_line(u8);
 /* set the status line */
 void set_ticker(const std::string& text);
 void set_status(const std::string& text);

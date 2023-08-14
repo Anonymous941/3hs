@@ -93,15 +93,16 @@ enum NewSettings_flags0 {
 #define ISET_DISABLE_GRAPH (get_nsettings()->flags0 & FLAG0_DISABLE_GRAPH)
 #define ISET_GOTO_REGION (get_nsettings()->flags0 & FLAG0_GOTO_REGION)
 
-
 void reset_settings(bool set_default_lang = false);
 SortMethod settings_sort_switch();
 NewSettings *get_nsettings();
 bool settings_are_ready();
 void load_current_theme();
-void ensure_settings();
+/* returns true if settings were reset */
+bool ensure_settings();
 void show_theme_menu();
 void cleanup_themes();
+void settings_sync();
 void show_settings();
 void log_settings();
 

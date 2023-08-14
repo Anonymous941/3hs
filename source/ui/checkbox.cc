@@ -51,12 +51,6 @@ void ui::CheckBox::set_x(float x)
 	this->ox = x + this->w;
 }
 
-void ui::CheckBox::connect(connect_type t, std::function<void(bool)> cb)
-{
-	panic_assert(t == on_change, "expected ::on_change");
-	this->on_change_cb = cb;
-}
-
 void ui::CheckBox::set_checked(bool c)
 {
 	u8 of = this->flags;

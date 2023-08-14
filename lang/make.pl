@@ -50,6 +50,7 @@ my @preserve_keywords = qw(
 	PAGE_3HS
 	PAGE_THEMES
 	PAGE_DONATE
+	PAGE_SWITCHING_SD_CARDS
 	UI_GLYPH_A
 	UI_GLYPH_B
 	UI_GLYPH_X
@@ -64,6 +65,10 @@ my @preserve_keywords = qw(
 	UI_GLYPH_DPAD_RIGHT
 	UI_GLYPH_DPAD_HORIZONTAL
 	UI_GLYPH_DPAD_VERTICAL
+);
+
+my @extra_data_directories = qw(
+	error-messages
 );
 
 # ====================== #
@@ -97,6 +102,8 @@ my $red_fmt = $without_color ? "" : "\033[31;1m";
 my $bld_fmt = $without_color ? "" : "\033[1m";
 my $clr_fmt = $without_color ? "" : "\033[0m";
 
+my $extra_dir_count = scalar @extra_data_directories;
+
 sub parse_lang_file {
 	my ($lang_name) = @_;
 	open my $fh, "$lang_dir/$lang_name" or die "failed to open $lang_name file.";
@@ -104,6 +111,7 @@ sub parse_lang_file {
 	my %functions_codegen;
 	my %functions;
 	my %strings;
+	my $extline;
 	my $line;
 
 	my $native_name = "";
@@ -112,57 +120,79 @@ sub parse_lang_file {
 
 	print "$lang_name ... ";
 
-	while(($line = <$fh>)) {
-		chomp $line;
-		# Remove CR.......................
-		$line =~ s/\r//g;
-		if ($line =~ /^\s*#[^#]/) {
-			next;
-		} elsif($line =~ /^- /) {
-			if($current_id eq "native_name") {
-				$native_name = $string_content;
-			} elsif($current_id) {
-				$current_id  =~ /([^ ]+)/i;
-				my $real_id  = $1;
-				if($current_id  =~ /(\+code\(.*\))/) {
-					my $code_bit = $1;
-					$functions{$real_id} = $string_content;
-					$code_bit =~ s/^\+code\(//;
-					$code_bit =~ s/\)$//;
-					my @params = split ", ", $code_bit;
-					my $genned_code = "";
-					for my $i (0..$#params) {
-						next if $params[$i] eq '_';
-						my $type = $params[$i];
-						my $i_2 = $i + 1;
-						if($type eq 'string') {
-							$genned_code .= "const std::string& p$i_2 = _params_vec[$i];\n";
-						} else {
-							if($type eq 'number') { $type = 'unsigned long long'; }
-							$genned_code .= "auto p$i_2 = unstring<$type>(_params_vec[$i]);\n";
+	my $dir_num = -1;
+	my $next_line_append = 0;
+
+	while(1) {
+		while(($line = <$fh>)) {
+			chomp $line;
+			# Remove CR.......................
+			$line =~ s/\r//g;
+			if ($line =~ /^\s*#[^#]/) {
+				next;
+			} elsif($line =~ /^- /) {
+				if($current_id eq "native_name") {
+					$native_name = $string_content;
+				} elsif($current_id) {
+					$current_id  =~ /([^ ]+)/i;
+					my $real_id  = $1;
+					if($current_id  =~ /(\+code\(.*\))/) {
+						my $code_bit = $1;
+						$functions{$real_id} = $string_content;
+						$code_bit =~ s/^\+code\(//;
+						$code_bit =~ s/\)$//;
+						my @params = split ", ", $code_bit;
+						my $genned_code = "";
+						for my $i (0..$#params) {
+							next if $params[$i] eq '_';
+							my $type = $params[$i];
+							my $i_2 = $i + 1;
+							if($type eq 'string') {
+								$genned_code .= "const std::string& p$i_2 = _params_vec[$i];\n";
+							} else {
+								if($type eq 'number') { $type = 'unsigned long long'; }
+								$genned_code .= "auto p$i_2 = unstring<$type>(_params_vec[$i]);\n";
+							}
 						}
+						chomp $genned_code;
+						$functions_codegen{$real_id} = $genned_code;
 					}
-					chomp $genned_code;
-					$functions_codegen{$real_id} = $genned_code;
+					else {
+						$strings{$real_id} = $string_content;
+					}
+				}
+				$string_content = "";
+				$current_id = $line;
+				$current_id =~ s/^- //;
+			}
+			elsif($line =~ /[^\s]/) {
+				$line =~ s/#{2}/#/g;
+				if($next_line_append) {
+					$string_content and $string_content .= " ";
+					$next_line_append = 0;
 				}
 				else {
-					$strings{$real_id} = $string_content;
+					$string_content and $string_content .= "\n";
 				}
+				if($line =~ /\\$/) {
+					$line =~ s/\s*\\$//g;
+					$next_line_append = 1;
+				}
+				$string_content .= $line;
 			}
-			$string_content = "";
-			$current_id = $line;
-			$current_id =~ s/^- //;
 		}
-		elsif($line =~ /[^\s]/) {
-			$line =~ s/#{2}/#/g;
-			$string_content and $string_content .= "\n";
-			$string_content .= $line;
+
+		$current_id and $strings{$current_id} = $string_content;
+		$next_line_append = 0;
+		$string_content = "";
+		$current_id = "";
+
+		close $fh;
+		for(++$dir_num; $dir_num != $extra_dir_count; ++$dir_num) {
+			open $fh, "$lang_dir/$extra_data_directories[$dir_num]/$lang_name" and last;
 		}
+		last if $dir_num >= $extra_dir_count;
 	}
-
-	close $fh;
-
-	$current_id and $strings{$current_id} = $string_content;
 
 	if($is_reference_lang) {
 		print "reference\n";
@@ -245,7 +275,8 @@ EOF
 	if(not $is_reference_lang) {
 		if($missing) {
 			if($print_missing) {
-				print " are missing";
+				my $verb = $missing == 1 ? "is" : "are";
+				print " $verb missing";
 			}
 			else {
 				print $red_fmt."$missing".$clr_fmt." missing";
@@ -283,10 +314,12 @@ $source_file .= <<EOF;
 	#define PAGE_3HS "(unset)"
 	#define PAGE_THEMES "(unset)"
 	#define PAGE_DONATE "(unset)"
+	#define PAGE_SWITCHING_SD_CARDS "(unset)"
 #else
 	#define PAGE_3HS HS_SITE_LOC "/3hs"
 	#define PAGE_THEMES HS_SITE_LOC "/wiki/theme-installation"
 	#define PAGE_DONATE HS_SITE_LOC "/donate"
+	#define PAGE_SWITCHING_SD_CARDS HS_SITE_LOC "/wiki/switching-sd-cards"
 #endif
 
 #define STUB(id) [str::id] = lang_strtab[lang::english][str::id]

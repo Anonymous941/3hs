@@ -42,6 +42,9 @@ namespace next
 	hsapi::hcid sel_sub(hsapi::hcid cat, size_t *cursor = nullptr);
 	hsapi::hid  sel_gam(std::vector<hsapi::PartialTitle>& titles, struct gam_reenter_data *rdata = nullptr, bool visited = false);
 	void maybe_install_gam(std::vector<hsapi::PartialTitle>& titles);
+
+	/* /===/ */
+	hsapi::hid sel_icon_gam(std::vector<hsapi::PartialTitle>& titles, const hsapi::IndexCategory& cat, const hsapi::IndexSubcategory& subcat);
 }
 
 #endif

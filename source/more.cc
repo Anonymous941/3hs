@@ -16,8 +16,6 @@
 
 #include "more.hh"
 
-#include "hlink/hlink_view.hh"
-
 #include "find_missing.hh"
 #include "audio_cfg.hh"
 #include "sysmanage.hh"
@@ -41,18 +39,16 @@ void show_more()
 
 	ui::RenderQueue queue;
 	ui::builder<ui::MenuSelect>(ui::Screen::bottom)
-		.connect(ui::MenuSelect::add, STRING(about_app), []() -> bool { show_about(); return true; })
-		.connect(ui::MenuSelect::add, STRING(find_missing_content), []() -> bool { show_find_missing_all(); return true; })
-		.connect(ui::MenuSelect::add, STRING(log), []() -> bool { show_logs_menu(); return true; })
-		.connect(ui::MenuSelect::add, STRING(themes), []() -> bool { show_theme_menu(); return true; })
-		.connect(ui::MenuSelect::add, STRING(delete_unused_tickets), []() -> bool { show_delete_unused_tickets(); return true; })
-		.connect(ui::MenuSelect::add, STRING(audio), []() -> bool { show_audio_config(); return true; })
-#ifndef RELEASE
-		.connect(ui::MenuSelect::add, "hLink", []() -> bool { show_hlink(); return true; })
-#endif
+		.add_row(STRING(about_app), []() -> bool { show_about(); return true; })
+		.add_row(STRING(find_missing_content), []() -> bool { show_find_missing_all(); return true; })
+		.add_row(STRING(log), []() -> bool { show_logs_menu(); return true; })
+		.add_row(STRING(themes), []() -> bool { show_theme_menu(); return true; })
+		.add_row(STRING(delete_unused_tickets), []() -> bool { show_delete_unused_tickets(); return true; })
+		.add_row(STRING(audio), []() -> bool { show_audio_config(); return true; })
 		.add_to(queue);
+
 	ui::builder<ui::ButtonCallback>(ui::Screen::top, KEY_START)
-		.connect(ui::ButtonCallback::kdown, [](u32) -> bool { exit(0); return false; })
+		.when_kdown([](u32) -> bool { exit(0); return false; })
 		.add_to(queue);
 
 	queue.render_finite_button(KEY_B);

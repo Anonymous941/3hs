@@ -66,20 +66,6 @@ bool ui::AppletSwkbd::render(ui::Keys& keys)
 	return true;
 }
 
-/* connect */
-
-void ui::AppletSwkbd::connect(ui::AppletSwkbd::connect_type t, SwkbdButton *b)
-{
-	panic_assert(t == ui::AppletSwkbd::button, "EINVAL");
-	this->buttonPtr = b;
-}
-
-void ui::AppletSwkbd::connect(ui::AppletSwkbd::connect_type t, SwkbdResult *r)
-{
-	panic_assert(t == ui::AppletSwkbd::result, "EINVAL");
-	this->resPtr = r;
-}
-
 /* KBDEnabledButton */
 
 void ui::KBDEnabledButton::setup(const std::string& default_label, const std::string& empty_label, const std::string& hint, size_t min_len)
@@ -89,7 +75,7 @@ void ui::KBDEnabledButton::setup(const std::string& default_label, const std::st
 	this->empty = empty_label;
 	this->hint = hint;
 	this->hasValue = !!default_label.size();
-	this->btn->connect(ui::Button::click, [this]() -> bool {
+	ui::builder<ui::Button>(this->btn.ptr()).when_clicked([this]() -> bool {
 		ui::RenderQueue::global()->render_and_then([this]() -> void {
 			SwkbdResult res;
 			SwkbdButton btn;
@@ -114,12 +100,6 @@ void ui::KBDEnabledButton::setup(const std::string& default_label, const std::st
 		return true;
 	});
 	this->btn->resize(ui::screen_width(this->screen), 24.0f);
-}
-
-void ui::KBDEnabledButton::connect(connect_type t, update_callback_type cb)
-{
-	panic_assert(t == ui::KBDEnabledButton::on_update, "unexpected value for connect_type");
-	this->update_cb = cb;
 }
 
 void ui::KBDEnabledButton::set(const std::string& val)
@@ -148,8 +128,8 @@ std::string ui::keyboard(std::function<void(ui::AppletSwkbd *)> configure,
 
 	ui::AppletSwkbd *swkbd;
 	ui::builder<ui::AppletSwkbd>(ui::Screen::top, &ret, length)
-		.connect(ui::AppletSwkbd::button, btn)
-		.connect(ui::AppletSwkbd::result, res)
+		.button(btn)
+		.result(res)
 		.add_to(&swkbd, queue);
 	configure(swkbd);
 
@@ -167,8 +147,8 @@ uint64_t ui::numpad(std::function<void(ui::AppletSwkbd *)> configure,
 
 	ui::AppletSwkbd *swkbd;
 	ui::builder<ui::AppletSwkbd>(ui::Screen::top, &ret, length, SWKBD_TYPE_NUMPAD)
-		.connect(ui::AppletSwkbd::button, btn)
-		.connect(ui::AppletSwkbd::result, res)
+		.button(btn)
+		.result(res)
 		.add_to(&swkbd, queue);
 	configure(swkbd);
 

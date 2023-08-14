@@ -25,11 +25,11 @@ void ui::Confirm::setup(const std::string& label, bool& ret)
 	this->ret = &ret;
 
 	ui::builder<ui::Button>(this->screen, STRING(confirm))
-		.connect(ui::Button::click, [this]() END(true))
+		.when_clicked([this]() END(true))
 		.tag(1)
 		.add_to(this->queue);
 	ui::builder<ui::Button>(this->screen, STRING(cancel))
-		.connect(ui::Button::click, [this]() END(false))
+		.when_clicked([this]() END(false))
 		.tag(0)
 		.add_to(this->queue);
 	ui::builder<ui::Text>(this->screen, label)

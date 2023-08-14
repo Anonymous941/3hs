@@ -16,14 +16,21 @@
 
 #include "next.hh"
 
+//!!!DELETE
+#include <log.hh>
+
 #include <widgets/meta.hh>
+#include <ui/icongrid.hh>
 #include <ui/list.hh>
 #include <ui/base.hh>
 
 #include <algorithm>
 #include <ctype.h>
 
+#include <3rd/stb_image.h>
+
 #include "installgui.hh"
+#include "image_ldr.hh"
 #include "extmeta.hh"
 #include "hsapi.hh"
 #include "queue.hh"
@@ -55,17 +62,17 @@ hsapi::hcid next::sel_cat(size_t *cursor)
 		.add_to(&meta, queue);
 
 	ui::builder<list_t>(ui::Screen::top, &sorted_categories)
-		.connect(list_t::to_string, [](const hsapi::Category& cat) -> std::string { return cat.disp; })
-		.connect(list_t::select, [&ret](list_t *self, size_t i, u32 kDown) -> bool {
+		.to_string([](const hsapi::Category& cat) -> std::string { return cat.disp; })
+		.when_select([&ret](list_t *self, size_t i, u32 kDown) -> bool {
 			ret = self->at(i).id;
 			if(kDown & KEY_START)
 				ret = next_cat_exit;
 			return false;
 		})
-		.connect(list_t::change, [meta](list_t *self, size_t i) -> void {
+		.when_change([meta](list_t *self, size_t i) -> void {
 			meta->set_cat(self->at(i));
 		})
-		.connect(list_t::buttons, KEY_START)
+		.buttons(KEY_START)
 		.x(5.0f).y(25.0f)
 		.add_to(&list, queue);
 
@@ -103,17 +110,17 @@ hsapi::hcid next::sel_sub(hsapi::hcid cat_id, size_t *cursor)
 		.add_to(&meta, queue);
 
 	ui::builder<list_t>(ui::Screen::top, &subcats)
-		.connect(list_t::to_string, [](const hsapi::Subcategory& scat) -> std::string { return scat.disp; })
-		.connect(list_t::select, [&ret](list_t *self, size_t i, u32 kDown) -> bool {
+		.to_string([](const hsapi::Subcategory& scat) -> std::string { return scat.disp; })
+		.when_select([&ret](list_t *self, size_t i, u32 kDown) -> bool {
 			ret = self->at(i).id;
 			if(kDown & KEY_B) ret = next_sub_back;
 			if(kDown & KEY_START) ret = next_sub_exit;
 			return false;
 		})
-		.connect(list_t::change, [meta](list_t *self, size_t i) -> void {
+		.when_change([meta](list_t *self, size_t i) -> void {
 			meta->set_sub(self->at(i));
 		})
-		.connect(list_t::buttons, KEY_B | KEY_START)
+		.buttons(KEY_B | KEY_START)
 		.x(5.0f).y(25.0f)
 		.add_to(&list, queue);
 
@@ -209,6 +216,105 @@ static sort_callback<hsapi::PartialTitle> get_sort_callback(SortDirection dir, S
 //	panic("invalid sort method/direction");
 }
 
+#if 0
+struct hsApiImageLoader {
+	using DataType = const hsapi::PartialTitle&;
+	using DataRefType = const hsapi::PartialTitle&;
+
+	using Provider = ui::PassiveImageProvider<hsApiImageLoader>;
+
+	static void batch_load(std::list<size_t> ids, Provider::Context& ctx)
+	{
+		C2D_Image img;
+		int x, y;
+
+		/* TODO: Convert this to an api fetch */
+		for(size_t id : ids)
+		{
+			if(ctx.should_die())
+				break;
+
+			hsapi::hid hid = ctx.data_for(id).id;
+			std::string path = "romfs:/test-icons/" + std::to_string(hid) + ".png";
+
+			u8 *bitmap = stbi_load(path.c_str(), &x, &y, NULL, 4);
+			if(!bitmap) continue; /* hmmmm...? */
+			rgba_to_abgr((u32 *) bitmap, x, y);
+			load_abgr8(&img, (u32 *) bitmap, x, y);
+			ctx.loaded_for(id, img);
+			free(bitmap);
+		}
+	}
+
+	void unload(C2D_Image img)
+	{
+		delete_image(img);
+	}
+};
+
+hsapi::hid next::sel_icon_gam(std::vector<hsapi::PartialTitle>& titles, const hsapi::IndexCategory& cat, const hsapi::IndexSubcategory& subcat)
+{
+	using IconGridType = ui::IconGrid<hsApiImageLoader::Provider>;
+
+	hsapi::hid ret = next_gam_back;
+	ui::RenderQueue queue;
+	ui::TitleMeta *meta;
+	IconGridType *grid;
+
+	titles.erase(titles.begin() + 10, titles.end());
+
+	ui::builder<ui::TitleMeta>(ui::Screen::bottom, titles[0])
+		.add_to(&meta, queue);
+
+	/* TODO: Sorting, proper icon fetching, implementing load_more, saving position */
+
+	ui::builder<IconGridType>(ui::Screen::top)
+		.x(20.0f)
+		.y(40.0f)
+		.when_more_requested([cat, subcat](IconGridType *grid) -> bool {
+			return false;
+		})
+		.when_selected([&ret](IconGridType *grid, size_t i, u32 keys) -> bool {
+			const hsapi::PartialTitle& my_title = grid->provider_at(i).data();
+			if(keys & KEY_A)          ret = my_title.id;
+			else if(keys & KEY_B)     ret = next_gam_back;
+			else if(keys & KEY_START) ret = next_gam_exit;
+			else if(keys & KEY_Y)
+			{
+				ui::RenderQueue::global()->render_and_then([my_title]() -> void {
+					queue_add(my_title.id);
+				});
+				return true;
+			}
+			return false;
+		})
+		.when_changed([meta](IconGridType *grid, size_t i) -> void {
+			const hsapi::PartialTitle& my_title = grid->provider_at(i).data();
+			meta->set_title(my_title);
+		})
+		.buttons(KEY_B | KEY_Y | KEY_START)
+		.automatically_arranged()
+		.selection()
+		.icon_dimensions(48)
+		.add_to(&grid, queue);
+
+	grid->loader().set_loading_image(ui::SpriteStore::get_by_id((ui::sprite) next_loadicon48x48_idx).image);
+
+	for(hsapi::PartialTitle& title : titles)
+	{
+		size_t id = grid->emplace_back(title);
+		grid->loader().add_to_batch(id);
+	}
+	grid->loader().process_batch();
+
+	u8 statusflags = make_status_line_clear();
+	queue.render_finite();
+	restore_status_line(statusflags);
+
+	return ret;
+}
+#endif
+
 hsapi::hid next::sel_gam(std::vector<hsapi::PartialTitle>& titles, struct gam_reenter_data *rdata, bool visited)
 {
 	using list_t = ui::List<hsapi::PartialTitle>;
@@ -242,30 +348,29 @@ hsapi::hid next::sel_gam(std::vector<hsapi::PartialTitle>& titles, struct gam_re
 		.add_to(&meta, queue);
 
 	ui::builder<list_t>(ui::Screen::top, &titles)
-		.connect(list_t::to_string, [](const hsapi::PartialTitle& title) -> std::string { return hsapi::title_name(title); })
-		.connect(list_t::select, [&ret](list_t *self, size_t i, u32 kDown) -> bool {
+		.to_string([](const hsapi::PartialTitle& title) -> std::string { return hsapi::title_name(title); })
+		.when_select([&ret](list_t *self, size_t i, u32 kDown) -> bool {
 			ret = self->at(i).id;
 			if(kDown & KEY_B) ret = next_gam_back;
 			if(kDown & KEY_START) ret = next_gam_exit;
 			if(kDown & KEY_Y)
 			{
 				ui::RenderQueue::global()->render_and_then([ret]() -> void {
-					/* the true is there to stop ambiguidity (how?) */
-					queue_add(ret, true);
+					queue_add(ret);
 				});
 				return true;
 			}
 			return false;
 		})
-		.connect(list_t::change, [meta](list_t *self, size_t i) -> void {
+		.when_change([meta](list_t *self, size_t i) -> void {
 			meta->set_title(self->at(i));
 		})
-		.connect(list_t::buttons, KEY_B | KEY_Y | KEY_START)
+		.buttons(KEY_B | KEY_Y | KEY_START)
 		.x(5.0f).y(25.0f)
 		.add_to(&list, queue);
 
 	ui::builder<ui::ButtonCallback>(ui::Screen::top, KEY_L)
-		.connect(ui::ButtonCallback::kdown, [list, &dir, &sortm, &titles, meta](u32) -> bool {
+		.when_kdown([list, &dir, &sortm, &titles, meta](u32) -> bool {
 			ui::RenderQueue::global()->render_and_then([list, &dir, &sortm, &titles, meta]() -> void {
 				sortm = settings_sort_switch();
 #if 0
@@ -286,7 +391,7 @@ hsapi::hid next::sel_gam(std::vector<hsapi::PartialTitle>& titles, struct gam_re
 		}).add_to(queue);
 
 	ui::builder<ui::ButtonCallback>(ui::Screen::top, KEY_R)
-		.connect(ui::ButtonCallback::kdown, [list, &dir, &sortm, &titles, meta](u32) -> bool {
+		.when_kdown([list, &dir, &sortm, &titles, meta](u32) -> bool {
 			ui::RenderQueue::global()->render_and_then([list, &dir, &sortm, &titles, meta]() -> void {
 				dir = dir == SortDirection::ascending ? SortDirection::descending : SortDirection::ascending;
 #if 0

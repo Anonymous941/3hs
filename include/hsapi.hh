@@ -114,10 +114,6 @@ namespace hsapi
 	/* dlapi ops */
 	Result get_download_link(std::string& ret, const Title& meta);
 
-	/* de/initialization */
-	void global_deinit();
-	bool global_init();
-
 	/* offline string construction */
 	std::string format_category_and_subcategory(hcid cid, hcid sid);
 	std::string update_location(const std::string& ver);

@@ -1,5 +1,5 @@
 
-OBJS = hlink.o main.o hstx.o hwav.o
+OBJS = main.o hstx.o hwav.o
 CFLAGS = -pedantic -Wall -g -lavformat -lavcodec -lavutil -lswresample -lm
 DESTDIR ?= /usr/local
 TARGET ?= 3hstool

@@ -202,7 +202,7 @@ static extmeta_return extmeta(ui::RenderQueue& queue, const TTitle& base, const 
 			.add_to(queue);
 
 		ui::builder<ui::ButtonCallback>(ui::Screen::top, KEY_X)
-			.connect(ui::ButtonCallback::kdown, [&base](u32) -> bool { ui::RenderQueue::global()->render_and_then([&base]() -> void {
+			.when_kdown([&base](u32) -> bool { ui::RenderQueue::global()->render_and_then([&base]() -> void {
 					show_preview(base);
 				}); return true; })
 			.add_to(queue);
@@ -264,15 +264,15 @@ static extmeta_return extmeta(ui::RenderQueue& queue, const TTitle& base, const 
 		.add_to(queue);
 
 	ui::builder<ui::ButtonCallback>(ui::Screen::top, KEY_B)
-		.connect(ui::ButtonCallback::kdown, [&ret](u32) -> bool { ret = extmeta_return::no; return false; })
+		.when_kdown([&ret](u32) -> bool { ret = extmeta_return::no; return false; })
 		.add_to(queue);
 
 	ui::builder<ui::ButtonCallback>(ui::Screen::top, KEY_A)
-		.connect(ui::ButtonCallback::kdown, [&ret](u32) -> bool { ret = extmeta_return::yes; return false; })
+		.when_kdown([&ret](u32) -> bool { ret = extmeta_return::yes; return false; })
 		.add_to(queue);
 
 	ui::builder<ui::ButtonCallback>(ui::Screen::top, KEY_Y)
-		.connect(ui::ButtonCallback::kdown, [&base](u32) -> bool { ui::RenderQueue::global()->render_and_then([&base]() -> void {
+		.when_kdown([&base](u32) -> bool { ui::RenderQueue::global()->render_and_then([&base]() -> void {
 				queue_add(base.id, true);
 			}); return true; })
 		.add_to(queue);

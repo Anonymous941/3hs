@@ -257,28 +257,15 @@ static void player_prev_plist(struct cwav *currentFile, ndspWaveBuf buffers[2][2
 static void player_thread_entrypoint(void *arg)
 {
 	(void) arg;
-	uint8_t *backingBuffer = (uint8_t *) linearAlloc(4 * PLAYER_BUFFER_SIZE);
+	uint8_t *backingBuffer = NULL;
 	ndspWaveBuf buffers[2][2];
 	struct cwav currentFile;
 	int audioCmd = ACMD_NONE;
 	int bufsel = 0;
+	Result ndspInitRes = -1;
 
 	/* if not currentFile may be used uninitialized */
 	memset(&currentFile, 0, sizeof(currentFile));
-
-	/* failure to allocate; just don't play at all */
-	if(!backingBuffer)
-		return;
-
-	/* set the buffer pointer for each of our sub-buffers */
-	for(int i = 0; i < 2; ++i)
-		for(int j = 0; j < 2; ++j)
-			buffers[i][j].data_vaddr = &backingBuffer[PLAYER_BUFFER_SIZE*(i*2+j)];
-
-	/* initialize ndsp */
-	ensure_dspfirm_is_available();
-	if(R_FAILED(ndspInit()))
-		goto fail1;
 
 	struct audiocb_data cbData = { .buffers = &buffers, .audioCmd = &audioCmd, .bufsel = &bufsel };
 	ndspSetCallback(player_ndsp_callback, &cbData);
@@ -354,8 +341,23 @@ static void player_thread_entrypoint(void *arg)
 				player_replay_cwav(&currentFile, buffers);
 			break;
 		case CMD_INIT:
-			/* does not actually do anything, just ensures player_init() does not
-			 * terminate until this thread is fully set up and listening for commands */
+			/* this command exists to ensure that after player_init() the audio thread is fully setup */
+			playerCommandArg.b = false;
+			backingBuffer = linearAlloc(4 * PLAYER_BUFFER_SIZE);
+			if(!backingBuffer) elog("audio engine failed to start: failed to allocate audio buffer!");
+			else
+			{
+				/* set the buffer pointer for each of our sub-buffers */
+				for(int i = 0; i < 2; ++i)
+					for(int j = 0; j < 2; ++j)
+						buffers[i][j].data_vaddr = &backingBuffer[PLAYER_BUFFER_SIZE*(i*2+j)];
+
+				/* initialize ndsp */
+				ensure_dspfirm_is_available();
+				if(R_FAILED(ndspInitRes = ndspInit()))
+					elog("audio engine failed to start: failed to initialize ndsp! 0x%08lX", ndspInitRes);
+				else playerCommandArg.b = true;
+			}
 			break;
 		case CMD_PUSH:
 		case CMD_POP:
@@ -386,9 +388,11 @@ static void player_thread_entrypoint(void *arg)
 		LightEvent_Wait(&playerEvent);
 	}
 
-	player_reset();
-	ndspExit();
-fail1:
+	if(R_SUCCEEDED(ndspInitRes))
+	{
+		player_reset();
+		ndspExit();
+	}
 	linearFree(backingBuffer);
 }
 
@@ -413,7 +417,10 @@ Result player_init(void)
 
 	playerCommand = CMD_INIT;
 	LightLock_Unlock(&fireLock);
+	player_wake();
 	player_wait();
+	if(!playerCommandArg.b)
+		player_exit();
 
 	return 0;
 }

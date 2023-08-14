@@ -188,8 +188,8 @@ void show_queue()
 		.add_to(&meta, queue);
 
 	ui::builder<list_t>(ui::Screen::top, &g_queue)
-		.connect(list_t::to_string, [](const hsapi::Title& meta) -> std::string { return meta.name; })
-		.connect(list_t::select, [meta](list_t *self, size_t i, u32 kDown) -> bool {
+		.to_string([](const hsapi::Title& meta) -> std::string { return meta.name; })
+		.when_select([meta](list_t *self, size_t i, u32 kDown) -> bool {
 			/* why is the cast necessairy? */
 			((void) i);
 			ui::RenderQueue::global()->render_and_then((std::function<bool()>) [self, meta, kDown]() -> bool {
@@ -214,15 +214,15 @@ void show_queue()
 
 			return true;
 		})
-		.connect(list_t::change, [meta](list_t *self, size_t i) -> void {
+		.when_change([meta](list_t *self, size_t i) -> void {
 			meta->set_title(self->at(i));
 		})
-		.connect(list_t::buttons, KEY_X)
+		.buttons(KEY_X)
 		.x(5.0f).y(25.0f)
 		.add_to(queue);
 
 	ui::builder<ui::Button>(ui::Screen::bottom, STRING(install_all))
-		.connect(ui::Button::click, []() -> bool {
+		.when_clicked([]() -> bool {
 			ui::RenderQueue::global()->render_and_then(queue_process_all);
 			/* the queue will always be empty after this */
 			return false;

@@ -205,10 +205,45 @@ namespace ctr {
 
 	bool running_on_new_series();
 
+	class Event
+	{
+	public:
+		enum class ResetType {
+			Oneshot = RESET_ONESHOT,
+			Sticky  = RESET_STICKY,
+		};
+
+		Event(ResetType type) { LightEvent_Init(&this->event, (::ResetType) type); }
+		LightEvent *get_event() { return &this->event; }
+		void clear() { LightEvent_Clear(&this->event); }
+		void pulse() { LightEvent_Pulse(&this->event); }
+		void signal() { LightEvent_Signal(&this->event); }
+
+		void wait(s64 timeout_ns) { LightEvent_WaitTimeout(&this->event, timeout_ns); }
+		int try_wait() { return LightEvent_TryWait(&this->event); }
+		void wait() { LightEvent_Wait(&this->event); }
+
+	private:
+		LightEvent event;
+
+	};
+
+	class Lock
+	{
+	public:
+		Lock() { LightLock_Init(&this->llock); }
+		LightLock *get_lock() { return &this->llock; }
+		void lock() { LightLock_Lock(&this->llock); }
+		void unlock() { LightLock_Unlock(&this->llock); }
+	private:
+		LightLock llock;
+	};
+
 	class LockedInScope
 	{
 	public:
 		LockedInScope(LightLock *lock) { LightLock_Lock(this->lock = lock); }
+		LockedInScope(Lock& lock) { LightLock_Lock(this->lock = lock.get_lock()); }
 		~LockedInScope() { LightLock_Unlock(this->lock); }
 	private:
 		LightLock *lock;

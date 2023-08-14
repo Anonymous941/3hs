@@ -35,10 +35,34 @@ namespace ui
 		float height() override;
 		float width() override;
 
-		enum connect_type { add, on_select, on_move, set_key_mask };
-		void connect(connect_type, const std::string&, callback_t);
-		void connect(connect_type, callback_t);
-		void connect(connect_type, u32);
+		UI_BUILDER_EXTENSIONS()
+		{
+			UI_USING_BUILDER()
+		public:
+			ReturnValue add_row(const std::string& s, callback_t c)
+			{
+				this->instance().add_row(s, c);
+				return this->return_value();
+			}
+
+			ReturnValue keymask(u32 k)
+			{
+				this->instance().kdownmask = k;
+				return this->return_value();
+			}
+
+			ReturnValue when_select(callback_t cb)
+			{
+				this->instance().main_callback = cb;
+				return this->return_value();
+			}
+
+			ReturnValue when_changed(callback_t cb)
+			{
+				this->instance().cursor_move_callback = cb;
+				return this->return_value();
+			}
+		};
 
 		void select(size_t pos, u32 pressed_keys);
 

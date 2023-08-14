@@ -842,3 +842,16 @@ If you found hShop useful, please make a donation by visiting PAGE_DONATE on ano
 
 # -- v1.4.5 barrier -- #
 
+# This string is a bit weird. It's displayed the first time 3hs is booted and is meant to prevent the question "3hs is in Japanese/Welsh how fix" in the Discord support channels
+#  %1 = your language name
+- automatically_detected
+3hs has automatically detected the system language is %1. Press UI_GLYPH_A to confirm.
+
+# This is used to dismiss an error screen
+- press_b_continue
+Press UI_GLYPH_B to continue.
+
+# This is displayed at the top of an error screen
+- error_occurred
+An error occurred
+

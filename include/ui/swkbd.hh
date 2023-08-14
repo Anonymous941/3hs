@@ -36,10 +36,22 @@ namespace ui
 		float height() override;
 		float width() override;
 
-		enum connect_type { button, result };
+		UI_BUILDER_EXTENSIONS()
+		{
+			UI_USING_BUILDER()
+		public:
+			ReturnValue button(SwkbdButton *b)
+			{
+				this->instance().buttonPtr = b;
+				return this->return_value();
+			}
 
-		void connect(connect_type, SwkbdButton *b); /* button */
-		void connect(connect_type, SwkbdResult *r); /* result */
+			ReturnValue result(SwkbdResult *r)
+			{
+				this->instance().resPtr = r;
+				return this->return_value();
+			}
+		};
 
 		/* set the hint text, the text displayed transparantly
 		 * if you don't have any text entered */
@@ -84,8 +96,16 @@ namespace ui
 		void set(const std::string& val);
 		const std::string& value();
 
-		enum connect_type { on_update };
-		void connect(connect_type, update_callback_type);
+		UI_BUILDER_EXTENSIONS()
+		{
+			UI_USING_BUILDER()
+		public:
+			ReturnValue when_update(update_callback_type cb)
+			{
+				this->instance().update_cb = cb;
+				return this->return_value();
+			}
+		};
 
 		bool is_empty() { return !this->hasValue; }
 

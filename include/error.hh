@@ -37,6 +37,7 @@
 #define APPERR_MAX_REDIRECTS MAKERESULT(RL_PERMANENT, RS_OUTOFRESOURCE, RM_APPLICATION, 15)
 #define APPERR_INVALID_NB MAKERESULT(RL_PERMANENT, RS_INVALIDSTATE, RM_APPLICATION, 16)
 #define APPERR_CRITICAL_BAT MAKERESULT(RL_PERMANENT, RS_INVALIDSTATE, RM_APPLICATION, 17)
+#define APPERR_FAILED_CURL MAKERESULT(RL_PERMANENT, RS_INVALIDSTATE, RM_APPLICATION, 18)
 
 #ifdef __cplusplus
 #include <string>
@@ -64,6 +65,10 @@ void report_error(error_container& container, std::string note = "");
 std::string format_err(const std::string& msg, Result code);
 error_container get_error(Result res);
 std::string pad8code(Result code);
+
+/** Presents an error code to the user
+ */
+void edisp(Result code);
 #endif
 
 #endif

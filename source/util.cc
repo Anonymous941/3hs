@@ -37,14 +37,26 @@ void StatusLine::reset()
 	this->flags = 0;
 }
 
-void StatusLine::start(const std::string& str, bool is_ticker)
+void StatusLine::start(const std::string& str, StatusLine::StatusDisplayType type)
 {
 	this->text.setup(this->screen, str);
 	this->text->resize(0.35f, 0.35f);
 	this->text->set_raw_y(ui::screen_height() - 10.0f);
 	this->fadeoutx = -this->text->width() - 10.0f;
-	this->text->set_raw_x(this->xpos = is_ticker ? ui::screen_width(this->screen) + 10.0f : this->fadeoutx);
 	this->text.finalize();
+
+	switch(type)
+	{
+	case StatusLine::StatusDisplayType::slide_in:
+		this->xpos = this->fadeoutx;
+		this->text->set_raw_x(this->xpos);
+		break;
+	case StatusLine::StatusDisplayType::ticker:
+		this->xpos = ui::screen_width(this->screen) + 10.0f;
+		this->text->set_raw_x(this->xpos);
+		this->flags |= StatusLine::flag_is_ticker;
+		break;
+	}
 
 	ui::BaseWidget *w = ui::RenderQueue::global()->find_tag(ui::tag::net_indicator);
 	this->flags |= w->is_hidden() ? 0 : StatusLine::flag_net_is_hidden;
@@ -59,14 +71,12 @@ void StatusLine::start(const std::string& str, bool is_ticker)
 
 void StatusLine::ticker(const std::string& str)
 {
-	this->flags = StatusLine::flag_is_ticker;
-	this->start(str, true);
+	this->start(str, StatusLine::StatusDisplayType::ticker);
 }
 
 void StatusLine::run(const std::string& str)
 {
-	this->flags = 0;
-	this->start(str, false);
+	this->start(str, StatusLine::StatusDisplayType::slide_in);
 }
 
 bool StatusLine::render(ui::Keys& keys)
@@ -112,6 +122,7 @@ bool StatusLine::render(ui::Keys& keys)
 			this->flags |= StatusLine::flag_is_in_position;
 		}
 	}
+
 	return true;
 }
 /* end StatusLine */
@@ -130,6 +141,27 @@ bool set_focus(bool focus)
 	ui::RenderQueue::global()->find_tag(ui::tag::queue)->set_hidden(focus);
 	ui::RenderQueue::global()->find_tag(ui::tag::more)->set_hidden(focus);
 	return ret;
+}
+
+u8 make_status_line_clear()
+{
+	u8 flags = 0;
+
+	ui::BaseWidget *w = ui::RenderQueue::global()->find_tag(ui::tag::net_indicator);
+	flags |= w->is_hidden() ? 0 : 1;
+	w->set_hidden(true);
+
+	w = ui::RenderQueue::global()->find_tag(ui::tag::free_indicator);
+	flags |= w->is_hidden() ? 0 : 2;
+	w->set_hidden(true);
+
+	return flags;
+}
+
+void restore_status_line(u8 flags)
+{
+	ui::RenderQueue::global()->find_tag(ui::tag::net_indicator)->set_hidden(!!(flags & 1));
+	ui::RenderQueue::global()->find_tag(ui::tag::free_indicator)->set_hidden(!!(flags & 2));
 }
 
 std::string set_desc(const std::string& nlabel)

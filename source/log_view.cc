@@ -65,8 +65,8 @@ void show_logs_menu()
 
 	ui::RenderQueue queue;
 	ui::builder<ui::MenuSelect>(ui::Screen::bottom)
-		.connect(ui::MenuSelect::add, STRING(upload_logs), upload_logs)
-		.connect(ui::MenuSelect::add, STRING(clear_logs), clear_logs)
+		.add_row(STRING(upload_logs), upload_logs)
+		.add_row(STRING(clear_logs), clear_logs)
 		.add_to(queue);
 
 	queue.render_finite_button(KEY_B);

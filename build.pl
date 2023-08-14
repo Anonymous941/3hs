@@ -5,6 +5,7 @@ use strict;
 
 sub getconf;
 sub hasconf;
+sub error;
 
 # = Project configuration ==================================== #
 
@@ -66,7 +67,8 @@ my $app_jingle = "cia_stuff/audio.cwav";
 #  and should contain additional configuration (i.e. set CFLAGS, LDFLAGS, etc)
 #  special: you can set PREDEPS to define additional dependencies for the ELF file
 #  which will be execute *before* the objects compile
-#  you can also set EXTRA_CLEAN to add extra files to delete with `./build.pl clean`
+#  you can also set EXTRA_CLEAN to add extra files to delete with `./build.pl clean` or
+#  CLEAN_DEPS to set dependencies for the `clean` build target
 sub configure {
 	my $debug     = hasconf "debug";
 	my $full_log  = hasconf "full_log";
@@ -77,9 +79,19 @@ sub configure {
 	my $cdnbase   = getconf "cdn_base", "HS_CDN_BASE";
 	my $siteloc   = getconf "site_url", "HS_WEBSITE";
 	my $nbloc     = getconf "nb_base", "HS_NB_BASE";
+	my $htbackend = getconf("http_backend") || 'httpc';
 
-	die "Must provide hShop server URLs, see the README"
+	error "Must provide hShop server URLs, see the README"
 		unless $upbase && ($dserv || ($cdnbase && $siteloc && $nbloc));
+
+	my $htbackend_enum_val;
+	if ($htbackend eq 'httpc' || $htbackend eq 'system') {
+		$htbackend_enum_val = "HTTP_BACKEND_HTTPC";
+	} elsif ($htbackend eq 'curl') {
+		$htbackend_enum_val = "HTTP_BACKEND_CURL";
+	} else {
+		error "http_backend must be 'httpc', 'system' or 'curl'!";
+	}
 
 	my $cflags = "";
 	$cflags .= " -DFULL_LOG=1" if $full_log;
@@ -91,12 +103,18 @@ sub configure {
 	$cflags .= " -DHS_NB_BASE=\\\"$nbloc\\\"" if $nbloc;
 	$cflags .= " -DHS_CDN_BASE=\\\"$cdnbase\\\"" if $cdnbase;
 	$cflags .= " -DHS_SITE_LOC=\\\"$siteloc\\\"" if $siteloc;
+	$cflags .= " -DHTTP_BACKEND=\"$htbackend_enum_val\"";
+
+	my $libs = "";
+	$libs .= " -lcurl -lz -lmbedx509 -lmbedtls" if $htbackend eq 'curl';
 
 	return <<EOF;
 CFLAGS   :=$cflags
 CXXFLAGS := \$(CFLAGS)
+LIBS     :=$libs
 
-PREDEPS := \$(BUILD)/i18n_tab.cc data/dark.hstx data/light.hstx
+PREDEPS    := \$(BUILD)/i18n_tab.cc data/dark.hstx data/light.hstx
+CLEAN_DEPS := clean-3hstool
 EOF
 }
 
@@ -115,6 +133,27 @@ data/dark.hstx data/light.hstx: 3hstool/3hstool 3hstool/dark.cfg 3hstool/light.c
 
 3hstool/3hstool:
 	\$(SILENT)cd 3hstool; make -f Makefile
+
+.PHONY: 3hstool clean-3hstool
+3hstool: 3hstool/3hstool
+clean-3hstool:
+	\$(SILENT)cd 3hstool; make -f Makefile clean
+EOF
+}
+
+# Configure help subroutine, this subroutine should return the help for your project specific configuration
+sub configure_help {
+	return <<EOF;
+  debug, DEBUG=1                        enable debug flags (default when the release flag is not present)
+  release, RELEASE=1                    enable optimization + some minor changes for production
+  http_backend, HTTP_BACKEND [backend]  http backend, either httpc/system or curl
+  full_log, FULL_LOG=1                  enable full logging capabilities (default when release flag is not present)
+  device_id, DEVICE_ID [device-id]      sets the device id for device-specific builds
+  debug_server, HS_DEBUG_SERVER [url]   sets the debug server url
+  update_base, HS_UPDATE_BASE [url]     sets the update base url
+  nb_base, HS_NB_BASE [url]             sets the NBAPI base url
+  cdn_base, HS_CDN_BASE [url]           sets the CDN base url
+  site_url, HS_SITE_URL [url]           sets the site base url
 EOF
 }
 
@@ -128,21 +167,69 @@ use File::Basename;
 my $build_dir = ".build-stage";
 my $update_file_list = 0;
 my $config_string = 0;
+my $target_opt = 0;
 my $target = 0;
 my $explicit_init = 0;
 my $new_default = 0;
 my $jobs = int `nproc`;
+my $help = 0;
+my $list_targets = 0;
+
+
+sub do_help {
+	my ($error_msg) = @_;
+
+	my $proj_help = configure_help;
+	my $msg = <<EOF;
+Usage: build.pl [options...] [build-targets...]
+Options:
+  --build, -b [DIR]         set build directory
+  --update-file-list, -u    update the source files list
+  --init, -i                initialize the build system
+  --set-default-target [T]  set the default build target
+  --target, -t [T]          build target T instead of the default
+  --jobs, -j [N]            build with N jobs instead of the result of \`nproc\`
+  --list-targets, -l        list all available targets
+  --configure, -c           configure a target, also requires --init or --target
+  --help, -h                display this message
+
+General environment variables:
+  VERSION [version]  sets the cia version
+
+General configure options:
+  targets, TARGETS [build-targets]  sets a list of targets to build by default, a space seperated list of these: elf, 3dsx, cia, 3dslink, citra
+
+Project configure options:
+$proj_help
+EOF
+
+	if ($error_msg) {
+		print STDERR "error: $error_msg\n\n";
+		print STDERR $msg;
+		exit 1;
+	} else {
+		print $msg;
+		exit 0;
+	}
+}
+
+sub error {
+	do_help $_[0] || 'failed to configure';
+}
 
 GetOptions(
 	"build|b=s", \$build_dir,
 	"update-file-list|u", \$update_file_list,
 	"init|i", \$explicit_init,
 	"set-default-target=s", \$new_default,
-	"target|t=s", \$target,
+	"target|t=s", \$target_opt,
 	"configure|c=s", \$config_string,
 	"jobs|j=i", \$jobs,
-) or die "couldn't parse options";
+	"help|h", \$help,
+	"list-targets|l", \$list_targets,
+) or do_help "couldn't parse options";
 
+$target = $target_opt;
 if (!$target && -f "$build_dir/default-target.txt") {
 	open my $fh, "$build_dir/default-target.txt" or die $!;
 	$target = <$fh>;
@@ -181,10 +268,12 @@ sub make_file_list {
 	find { no_chdir => 1, wanted => sub { push @files, $_ if /\.(cpp|cc|c)$/; } }, @source_directories;
 	find { no_chdir => 1, wanted => sub { push @data_files, $_ if -f; } }, @data_directories;
 	find { no_chdir => 1, wanted => sub { push @gfx_files, $_ if -f; } }, $graphics_directory;
+
 	my $str = "\nSOURCE_FILES := \\\n";
 	for my $f (@files) {
 		$str .= "\t$f \\\n";
 	}
+
 	$str .= "\nOBJECT_FILES := \\\n";
 	for my $f (@files) {
 		$f =~ s/\.(cpp|cc|c)/\.o/;
@@ -199,8 +288,36 @@ sub make_file_list {
 		}
 	}
 	$str .= "\nDATA_OBJECTS := \\\n";
-	rmtree "$build_dir/build";
+
+	# We only have to delete files with dead files (i.e. real file doesn't exist anymore)
+	#  in order to not cause needless rebuilds
 	mkdir "$build_dir/build";
+	find { wanted => sub {
+		if (-l $_ && $_ =~ /\.bin$/) {
+			my $filename = $_ =~ s/\.bin$//r;
+			my $filename_escaped = $filename =~ s/\./_/r;
+			my $header = "${filename_escaped}.h";
+			my $object = "${filename}.o";
+
+			# Only erase if we know this data file is not in our data objects anymore
+			unless (grep $object, @data_files) {
+				unlink $_;      # symlink
+				unlink $header; # header file
+				unlink $object; # object file
+
+				print $_, " ", $header, " ", $object, "\n";
+			}
+		} elsif ($_ =~ /\.h$/) {
+			my $proposed_bin = $_;
+			# This is not entirely right... good enough for now
+			$proposed_bin =~ s/_?([^_]+)\.h$/.$1.bin/g;
+			my $t3x = $_ =~ s/\.h$/\.t3x/r;
+			unless (-f $proposed_bin || grep $t3x, @gfx_files) {
+				unlink $_;
+			}
+		}
+	} }, "$build_dir/build";
+
 	for my $f (@data_files) {
 		my $name = basename $f;
 		symlink "../../$f", "$build_dir/build/$name.bin";
@@ -261,7 +378,9 @@ EOF
 	mkdir "$build_dir/$name";
 }
 
-if (! -d $build_dir || $explicit_init) {
+if ($help) {
+	do_help;
+} elsif (! -d $build_dir || $explicit_init) {
 	if (!exists $ENV{DEVKITPRO}) {
 		print STDERR "Please set DEVKITPRO in your environment. export DEVKITPRO=<path to>devkitPro\n";
 		exit 1;
@@ -336,7 +455,7 @@ endif
 
 .PHONY: all clean clean-data
 all: \$(TARGETS)
-clean:
+clean: \$(CLEAN_DEPS)
 	\$(SILENT)rm -f \$(OBJECT_FILES) \$(DATA_OBJECTS) \$(GRAPHICS) \$(EXTRA_CLEAN)
 clean-data:
 	\$(SILENT)rm -f \$(DATA_OBJECTS)
@@ -405,10 +524,28 @@ EOF
 	close $deffh;
 	make_target $target;
 	execute_make if !$explicit_init;
-}
-elsif ($update_file_list) {
+} elsif ($list_targets) {
+	open my $fh, "$build_dir/default-target.txt" or die $!;
+	my $default_target = <$fh>;
+	close $fh;
+
+	my @targets;
+	find { wanted => sub { push @targets, $_ if /\.target\.mk$/; } }, $build_dir;
+
+	for my $target (@targets) {
+		$target =~ s/\.target\.mk$//;
+		print " => $target";
+		if ($default_target eq $target) {
+			print " [default]";
+		}
+		print "\n";
+	}
+} elsif ($update_file_list) {
 	make_file_list;
 } elsif ($config_string) {
+	if (!$target_opt) {
+		do_help "must specify configuration target";
+	}
 	make_target $target;
 } else {
 	make_target $target unless -f "$build_dir/$target.target.mk";

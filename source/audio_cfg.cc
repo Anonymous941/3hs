@@ -100,7 +100,7 @@ static int show_select_file_internal()
 	int ret = -1;
 
 	ui::builder<ui::MenuSelect>(ui::Screen::bottom)
-		.connect(ui::MenuSelect::on_select, [&msel, &ret]() -> bool {
+		.when_select([&msel, &ret]() -> bool {
 			ret = msel->pos();
 			return false;
 		})
@@ -146,7 +146,7 @@ static int show_select_playlist_internal(const char *additional_label, u32 *keys
 	int ret = -1;
 
 	ui::builder<ui::MenuSelect>(ui::Screen::bottom)
-		.connect(ui::MenuSelect::on_select, [&msel, &ret, keys, additional_label]() -> bool {
+		.when_select([&msel, &ret, keys, additional_label]() -> bool {
 			if(keys) *keys = msel->kdown_for_press();
 			ret = msel->pos();
 			/* can't press X on the additional label */
@@ -154,7 +154,7 @@ static int show_select_playlist_internal(const char *additional_label, u32 *keys
 				return true;
 			return false;
 		})
-		.connect(ui::MenuSelect::set_key_mask, keys ? KEY_X | KEY_A : KEY_A)
+		.keymask(keys ? KEY_X | KEY_A : KEY_A)
 		.add_to(&msel, rq);
 
 	int sel = 0;
@@ -219,7 +219,7 @@ static void show_manage_playlist_sub(struct playlist *pl)
 	};
 
 	ui::builder<ui::MenuSelect>(ui::Screen::bottom)
-		.connect(ui::MenuSelect::on_select, [&msel, pl, &fill_msel]() -> bool {
+		.when_select([&msel, pl, &fill_msel]() -> bool {
 			if((int) msel->pos() == pl->size)
 			{
 				if(!(msel->kdown_for_press() & KEY_A))
@@ -272,7 +272,7 @@ static void show_manage_playlist_sub(struct playlist *pl)
 			}
 			return true;
 		})
-		.connect(ui::MenuSelect::set_key_mask, KEY_X | KEY_A | KEY_L | KEY_R)
+		.keymask(KEY_X | KEY_A | KEY_L | KEY_R)
 		.add_to(&msel, rq);
 
 	fill_msel();
@@ -345,7 +345,7 @@ void show_audio_config()
 
 	ui::builder<ui::CheckBox>(ui::Screen::bottom, !!(plist_get_flags() & SP_RANDOMISE))
 		.under(rq.back()).align_x(rq.back(), 3.0f)
-		.connect(ui::CheckBox::on_change, set_dirty)
+		.when_change(set_dirty)
 		.add_to(&opt_randomise, rq);
 	ui::builder<ui::Text>(ui::Screen::bottom, STRING(randomize))
 		.right(rq.back()).align_y(rq.back()).middle(rq.back())
@@ -354,7 +354,7 @@ void show_audio_config()
 
 	ui::builder<ui::CheckBox>(ui::Screen::bottom, !!(plist_get_flags() & SP_REPEAT))
 		.under(rq.back()).align_x(opt_randomise)
-		.connect(ui::CheckBox::on_change, set_dirty)
+		.when_change(set_dirty)
 		.add_to(&opt_repeat, rq);
 	ui::builder<ui::Text>(ui::Screen::bottom, STRING(repeat))
 		.right(rq.back()).align_y(rq.back()).middle(rq.back())
@@ -363,7 +363,7 @@ void show_audio_config()
 
 	ui::builder<ui::CheckBox>(ui::Screen::bottom, !acfg()->alwaysMono)
 		.under(rq.back()).align_x(opt_randomise)
-		.connect(ui::CheckBox::on_change, set_dirty)
+		.when_change(set_dirty)
 		.add_to(&opt_stereo, rq);
 	ui::builder<ui::Text>(ui::Screen::bottom, STRING(stereo))
 		.right(rq.back()).align_y(rq.back()).middle(rq.back())
@@ -375,7 +375,7 @@ void show_audio_config()
 		.add_to(rq);
 	ui::builder<ui::Button>(ui::Screen::bottom, acfg()->default_playlist_name ? acfg()->default_playlist_name : STRING(none))
 		.size(ui::screen_width(ui::Screen::bottom), 20.0f)
-		.connect(ui::Button::click, [&defaultPlaylistNone, &defaultPlaylist]() -> bool {
+		.when_clicked([&defaultPlaylistNone, &defaultPlaylist]() -> bool {
 			ui::RenderQueue::global()->render_and_then([&defaultPlaylistNone, &defaultPlaylist]() -> void {
 				int pos = show_select_playlist_internal(NULL, NULL);
 				if(pos == -1)
@@ -407,7 +407,7 @@ void show_audio_config()
 		.add_to(rq);
 
 	ui::builder<ui::Button>(ui::Screen::bottom, STRING(playlist))
-		.connect(ui::Button::click, []() -> bool {
+		.when_clicked([]() -> bool {
 			ui::RenderQueue::global()->render_and_then(show_select_playlist);
 			return true;
 		})
@@ -416,7 +416,7 @@ void show_audio_config()
 		.under(rq.back()).align_x(rq.back(), 10.0f)
 		.add_to(rq);
 	ui::builder<ui::Button>(ui::Screen::bottom, STRING(file))
-		.connect(ui::Button::click, []() -> bool {
+		.when_clicked([]() -> bool {
 			ui::RenderQueue::global()->render_and_then(show_select_file);
 			return true;
 		})
@@ -426,7 +426,7 @@ void show_audio_config()
 		.add_to(rq);
 
 	ui::builder<ui::Button>(ui::Screen::bottom, STRING(manage_playlists))
-		.connect(ui::Button::click, []() -> bool {
+		.when_clicked([]() -> bool {
 			ui::RenderQueue::global()->render_and_then(show_manage_playlists);
 			return true;
 		})
@@ -435,7 +435,7 @@ void show_audio_config()
 		.add_to(rq);
 
 	ui::builder<ui::Button>(ui::Screen::bottom, STRING(save))
-		.connect(ui::Button::click, [&commit_changes]() -> bool {
+		.when_clicked([&commit_changes]() -> bool {
 			commit_changes();
 			acfg_save();
 			dirty_flag = 0;

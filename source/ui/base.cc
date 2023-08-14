@@ -655,12 +655,6 @@ void ui::Text::setup(const std::string& label)
 void ui::Text::setup()
 { this->set_text(""); }
 
-void ui::Text::connect(ui::Text::connect_type t, float w)
-{
-	panic_assert(t == ui::Text::max_width, "invalid connect_type");
-	this->maxw = w;
-}
-
 void ui::Text::prepare_arrays()
 {
 	if(this->buf == nullptr)
@@ -1109,32 +1103,6 @@ void ui::Button::autowrap()
 	this->readjust();
 }
 
-void ui::Button::connect(connect_type type)
-{
-	switch(type)
-	{
-	case ui::Button::nobg:
-		this->showBg = false;
-		break;
-	default:
-		panic("EINVAL");
-		break;
-	}
-}
-
-void ui::Button::connect(connect_type type, std::function<bool()> callback)
-{
-	switch(type)
-	{
-	case ui::Button::click:
-		this->on_click = callback;
-		break;
-	default:
-		panic("EINVAL");
-		break;
-	}
-}
-
 float ui::Button::textwidth()
 {
 	return this->widget->width();
@@ -1152,30 +1120,10 @@ void ui::ButtonCallback::setup(u32 keys)
 
 bool ui::ButtonCallback::render(ui::Keys& keys)
 {
-	switch(this->type)
-	{
-	case ui::ButtonCallback::kdown:
-		if(keys.kDown & this->keys)
-			return this->cb(keys.kDown);
-		break;
-	case ui::ButtonCallback::kheld:
-		if(keys.kHeld & this->keys)
-			return this->cb(keys.kHeld);
-		break;
-	case ui::ButtonCallback::kup:
-		if(keys.kUp & this->keys)
-			return this->cb(keys.kUp);
-		break;
-	case ui::ButtonCallback::none:
-		break;
-	}
+	if((keys.kDown & this->keys) && !this->cb_down(keys.kDown)) return false;
+	if((keys.kHeld & this->keys) && !this->cb_held(keys.kHeld)) return false;
+	if((keys.kUp & this->keys) && !this->cb_up(keys.kUp)) return false;
 	return true;
-}
-
-void ui::ButtonCallback::connect(ui::ButtonCallback::connect_type type, std::function<bool(u32)> cb)
-{
-	this->type = type;
-	this->cb = cb;
 }
 
 /* core widget class Toggle */

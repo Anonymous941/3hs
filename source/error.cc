@@ -19,7 +19,10 @@
 
 #include <unordered_map>
 
+#include <ui/base.hh>
+
 #include "error.hh"
+#include "i18n.hh"
 #include "log.hh"
 
 // Lookup maps
@@ -155,6 +158,7 @@ static const std::unordered_map<Result, std::unordered_map<Result, const char *>
 			{ 15, "Maximum HTTP redirects followed"               },
 			{ 16, "Failed to parse NBAPI data"                    },
 			{ 17, "Battery entered critical condition"            },
+			{ 18, "CURL error (shouldn't appear; debug only)"     },
 		}
 	},
 });
@@ -368,5 +372,79 @@ if(note != "") {
 	elog("Summary     : %s (0x%08lX)",  container.sSum.c_str(), container.iSum);
 	elog("===========================");
 	log_flush();
+}
+
+void edisp(Result code)
+{
+	ui::RenderQueue queue;
+
+#define LOAD(name) summary = STRING(error_##name##_summary); help = STRING(error_##name##_description)
+	const char *summary, *help;
+	switch(code)
+	{
+	/*
+		TODO:
+			- Can't install n3ds exclusive games on an o3ds
+			- Cancelled
+			- Title is not listed (?)
+			- Server doesn't support range/length (?)
+			- Log was too large to upload
+			- More?
+	*/
+	case (Result) 0xD8A3F808: /* Server didn't return status code 200 */
+	case (Result) 0xD8A3F810: /* Failed to parse NBAPI data */
+		break;
+	case (Result) 0xD8A0A03C: /* Failed to verify TLS certificate */
+		break;
+	case (Result) 0xD820A069: /* Request timed out */
+		break;
+	case (Result) 0xD8A0A046:
+		LOAD(network_unavailable);
+		break;
+	case (Result) 0xC86044D2:
+		LOAD(out_of_storage);
+		break;
+	default:
+		LOAD(unknown);
+		break;
+	}
+#undef LOAD
+
+	ui::Text *alignxt;
+
+	ui::builder<ui::Text>(ui::Screen::top, STRING(error_occurred))
+		.size(0.70f)
+		.y(20.0f).x(20.0f)
+		.add_to(&alignxt, queue);
+
+	const char *mod = "UNK";
+	auto modit = MOD_LOOKUP.find(R_MODULE(code));
+	if(modit != MOD_LOOKUP.end()) mod = modit->second;
+
+	char codemsg[32]; sprintf(codemsg, " (0x%08X, %s)", code, mod);
+	ui::builder<ui::Text>(ui::Screen::top, codemsg)
+		.size(0.45f)
+		.right(queue.back())
+		.align_y(queue.back())
+		.add_to(queue);
+
+	ui::builder<ui::Text>(ui::Screen::top, summary)
+		.size(0.50f)
+		.align_x(alignxt, 10.0f)
+		.under(queue.back())
+		.add_to(queue);
+
+	ui::builder<ui::Text>(ui::Screen::top, help)
+		.size(0.55f)
+		.under(queue.back())
+		.align_x(alignxt)
+		.wrap()
+		.add_to(queue);
+
+	ui::builder<ui::Text>(ui::Screen::bottom, STRING(press_b_continue))
+		.x(20.0f).y(35.0f)
+		.add_to(queue);
+
+	queue.render_finite_button(KEY_B);
 }
 

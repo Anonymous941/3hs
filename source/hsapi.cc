@@ -26,10 +26,6 @@
 #include <nbapi/nb.hh>
 
 #include <algorithm>
-#include <malloc.h>
-
-#define SOC_ALIGN       0x100000
-#define SOC_BUFFERSIZE  0x20000
 
 #if defined(HS_DEBUG_SERVER)
 	#define HS_NB_BASE  HS_DEBUG_SERVER ":5000/nbapi"
@@ -41,41 +37,6 @@
 #endif
 
 #define OK 0
-
-/* {{{1 de/initialization */
-
-static u32 *g_socbuf = nullptr;
-
-bool hsapi::global_init()
-{
-	Result res;
-	if(!(g_socbuf = (u32 *) memalign(SOC_ALIGN, SOC_BUFFERSIZE)))
-	{
-		elog("failed to allocate buffer of %X (aligned %X) for SOC", SOC_BUFFERSIZE, SOC_ALIGN);
-		return false;
-	}
-	if(R_FAILED((res = socInit(g_socbuf, SOC_BUFFERSIZE))))
-	{
-		free(g_socbuf);
-		g_socbuf = nullptr;
-		elog("failed to initialize SOC: %08lX", res);
-		return false;
-	}
-	ilog("%susing proxy for API", get_nsettings()->proxy_port ? "" : "not ");
-	return true;
-}
-
-void hsapi::global_deinit()
-{
-	if(g_socbuf != nullptr)
-	{
-		socExit();
-		free(g_socbuf);
-		g_socbuf = nullptr;
-	}
-}
-
-/* 1}}} */
 
 /* {{{1 Network primitives */
 
@@ -98,7 +59,6 @@ static Result basereq(const std::string& url, std::string& data, HTTPC_RequestMe
 	});
 
 	Result res = downloader.execute_once();
-	ilog("Got API data header: %.4s", data.c_str());
 	return res;
 }
 
@@ -115,6 +75,8 @@ static Result nbreq(const std::string& url, T& obj, HTTPC_RequestMethod reqm = H
 	Result res = basereq(url, data, reqm, postdata, size);
 	if(R_FAILED(res)) return res;
 
+	ilog("Got API data header: %.4s", data.c_str());
+
 	nb::StatusCode sc = parse_func(obj, (u8 *) data.c_str(), data.size(), nullptr);
 
 	switch(sc)
@@ -123,13 +85,13 @@ static Result nbreq(const std::string& url, T& obj, HTTPC_RequestMethod reqm = H
 		dlog("nb parse: success");
 		break;
 	case nb::StatusCode::NO_INPUT_DATA:
-		dlog("nb parse: no input data");
+		elog("nb parse: no input data");
 		break;
 	case nb::StatusCode::MAGIC_MISMATCH:
-		dlog("nb parse: magic mismatch");
+		elog("nb parse: magic mismatch");
 		break;
 	case nb::StatusCode::INPUT_DATA_TOO_SHORT:
-		dlog("nb parse: input data too short");
+		elog("nb parse: input data too short");
 		break;
 	}
 
@@ -142,7 +104,10 @@ static Result nbreq(const std::string& url, T& obj, HTTPC_RequestMethod reqm = H
 			res = handle_nb_result(nres);
 	}
 	if(sc != nb::StatusCode::SUCCESS)
-		res = APPERR_INVALID_NB;
+	{
+		res = APPERR_INVALID_NB; /* TODO: Ideally this log should be a dlog() but hidden behind some runtime trigger... */
+		elog("full failed nb data: %.*s", (int) data.size(), data.c_str());
+	}
 
 	return res;
 }
@@ -389,7 +354,7 @@ std::string hsapi::format_category_and_subcategory(hsapi::hcid cid, hsapi::hcid 
 }
 
 template <typename T>
-std::string real_title_name(const T& title)
+static std::string real_title_name(const T& title)
 {
 	const std::string& base = ISET_SHOW_ALT ? (title.alt.size() ? title.alt : title.name) : title.name;
 

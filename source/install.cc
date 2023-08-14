@@ -258,6 +258,10 @@ static Result install_generic_cia(get_url_func *get_url, prog_func *on_progress,
 		return FSFILE_Write(ciaHandle, &written, downloader.downloaded(), downloader.data_buffer(), chunk_size, 0);
 	});
 
+	/* TODO: Figure out why pressing HOME actually crashes instead of disallowing it */
+	bool homeAllowedRestore = aptIsHomeAllowed();
+	aptSetHomeAllowed(false);
+
 	res = install_generic(&downloader, get_url, on_progress);
 	ilog("install_generic returned %08lX", res);
 
@@ -269,6 +273,8 @@ static Result install_generic_cia(get_url_func *get_url, prog_func *on_progress,
 		svcCloseHandle(ciaHandle);
 	}
 	active_cia_handle = CIA_HANDLE_INVALID;
+
+	aptSetHomeAllowed(homeAllowedRestore);
 
 	ilog("final return of install_generic_cia is %08lX", res);
 	return res;
