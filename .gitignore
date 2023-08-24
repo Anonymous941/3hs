@@ -1,4 +1,4 @@
-romfs/gfx/
+romfs/gfx/*
 build/
 dumps/
 
